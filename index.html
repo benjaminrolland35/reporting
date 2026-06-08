@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporting Social Annuel — Meta · TikTok · LinkedIn · YouTube</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --panel2:#f3f5f9; --line:#e7eaf0;
+  --txt:#161c2c; --muted:#737f96; --accent:#3b5bfd; --accent2:#7c5cff;
+  --green:#16a34a; --amber:#d97706; --red:#dc2626;
+  --shadow:0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.04);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);color:var(--txt);font-size:14px;-webkit-font-smoothing:antialiased}
+header{display:flex;align-items:center;gap:14px;padding:14px 24px;background:var(--panel);
+  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+header h1{font-size:17px;margin:0;font-weight:600}
+header .sub{color:var(--muted);font-size:12px}
+.clientbar{display:flex;align-items:center;gap:8px;margin-left:auto}
+.clientbar label{font-size:12px;color:var(--muted)}
+.clientbar select{min-width:200px;font-weight:600}
+.iconbtn{background:var(--panel2);border:1px solid var(--line);color:var(--txt);width:34px;height:34px;
+  border-radius:8px;cursor:pointer;font-size:14px}
+.iconbtn:hover{filter:brightness(1.15)}
+nav{display:flex;gap:4px;margin-left:16px}
+nav button{background:transparent;border:1px solid transparent;color:var(--muted);padding:8px 14px;
+  border-radius:8px;cursor:pointer;font-size:13px;font-weight:500}
+nav button.active{background:var(--panel2);color:var(--txt);border-color:var(--line)}
+main{padding:24px;max-width:1280px;margin:0 auto}
+.tab{display:none}.tab.active{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:var(--shadow)}
+.card h2{margin:0 0 14px;font-size:15px}
+/* ---- bento reporting ---- */
+.bento{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow);grid-column:span 12;overflow:hidden;min-width:0}
+.tscroll{overflow-x:auto;max-width:100%}
+.tile h3{margin:0 0 12px;font-size:13px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.b3{grid-column:span 3}.b4{grid-column:span 4}.b5{grid-column:span 5}.b6{grid-column:span 6}.b7{grid-column:span 7}.b8{grid-column:span 8}.b12{grid-column:span 12}
+@media(max-width:900px){.b4,.b5,.b6,.b7,.b8{grid-column:span 12}.b3{grid-column:span 6}}
+@media(max-width:680px){
+  header{flex-wrap:wrap;gap:10px;padding:12px 14px;position:static}
+  header h1{font-size:16px} header .sub{display:none}
+  .clientbar{margin-left:0;width:100%;order:2} .clientbar select{flex:1;min-width:0}
+  nav{margin-left:0;width:100%;order:3;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
+  nav button{white-space:nowrap;padding:8px 12px}
+  main{padding:12px}
+  .bento{gap:12px} .tile{padding:14px} .card{padding:14px}
+  .b3{grid-column:span 6} .metric .val{font-size:21px}
+  .batch-grid{grid-template-columns:1fr}
+  .row .field{flex:1 1 100%}
+  select,input[type=text],input[type=number]{min-width:0;width:100%}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .chart-md,.chart-sm{height:240px}
+}
+@media(max-width:380px){ .b3{grid-column:span 12} }
+.metric{display:flex;flex-direction:column;gap:2px}
+.metric .lbl{color:var(--muted);font-size:12px;font-weight:500}
+.metric .val{font-size:28px;font-weight:700;letter-spacing:-.02em}
+.metric .sub{color:var(--muted);font-size:11px}
+.metric .bar{height:5px;border-radius:3px;background:var(--panel2);margin-top:8px;overflow:hidden}
+.metric .bar i{display:block;height:100%;border-radius:3px}
+.chart-sm{position:relative;height:230px}
+.chart-md{position:relative;height:280px}
+.awards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.award{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+.award .at{font-size:11px;color:var(--muted);font-weight:600}
+.award .an{font-size:13px;font-weight:600;margin:5px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.award .av{font-size:13px;display:flex;align-items:center}
+.row{display:flex;gap:14px;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+label{color:var(--muted);font-size:12px;font-weight:500}
+select,input[type=text],input[type=number]{background:var(--panel2);border:1px solid var(--line);
+  color:var(--txt);padding:9px 11px;border-radius:8px;font-size:13px;min-width:140px}
+button.btn{background:var(--accent);color:#fff;border:none;padding:10px 18px;border-radius:8px;
+  cursor:pointer;font-size:13px;font-weight:600}
+button.btn:hover{filter:brightness(1.08)}
+button.btn.sec{background:var(--panel2);border:1px solid var(--line);color:var(--txt)}
+button.btn.danger{background:transparent;border:1px solid var(--red);color:var(--red)}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:34px;text-align:center;color:var(--muted);
+  cursor:pointer;transition:.15s}
+.drop.hover{border-color:var(--accent);background:var(--panel2);color:var(--txt)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:600;cursor:pointer;user-select:none}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr:hover{background:var(--panel2)}
+td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.kpi{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:16px}
+.kpi .v{font-size:24px;font-weight:700;margin-top:4px}
+.kpi .l{color:var(--muted);font-size:12px}
+.good{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--red)}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px}
+.map-tbl select{min-width:200px}
+.note{color:var(--muted);font-size:12px;line-height:1.5}
+.empty{color:var(--muted);text-align:center;padding:40px}
+.chartbox{position:relative;height:300px}
+.flex-between{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.tag{font-size:11px;padding:2px 8px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+.helpbox{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:10px;padding:14px 16px;margin:4px 0 16px;font-size:13px;line-height:1.6}
+.helpbox h4{margin:0 0 6px;font-size:13px;color:var(--txt)}
+.helpbox .path{color:var(--accent);font-weight:600}
+.helpbox code{background:var(--bg);padding:1px 6px;border-radius:5px;font-size:12px;color:var(--txt)}
+.helpbox .cols{color:var(--muted);margin-top:6px}
+.batch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px;margin-top:8px}
+.slot{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px}
+.slot-head{display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:10px}
+.slot-head a{margin-left:auto;color:var(--accent);text-decoration:none;font-size:12px;white-space:nowrap}
+.slotdrop{border:2px dashed var(--line);border-radius:8px;padding:16px;text-align:center;color:var(--muted);
+  cursor:pointer;font-size:12px;transition:.15s}
+.slotdrop.hover{border-color:var(--accent);background:var(--panel);color:var(--txt)}
+.slotdrop.filled{border-style:solid;border-color:var(--green)}
+.slotstatus{font-size:12px;margin-top:8px;min-height:16px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(160%);
+  background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--green);
+  border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:14px;z-index:60;
+  box-shadow:0 12px 30px rgba(16,24,40,.16);transition:transform .25s;font-size:13px;max-width:92vw}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast button{background:var(--accent);border:none;color:#fff;padding:6px 12px;border-radius:7px;cursor:pointer;font-weight:600;font-size:12px}
+.hist .he{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+.hist .he .t{color:var(--muted);font-size:12px;min-width:140px}
+.hist .he .lbl{flex:1}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>📊 Reporting Social Annuel</h1>
+    <div class="sub">Instagram · Facebook · TikTok · LinkedIn · YouTube</div>
+  </div>
+  <div class="clientbar">
+    <label>Client</label>
+    <select id="clientSelect"></select>
+    <button class="iconbtn" id="newClient" title="Nouveau client">＋</button>
+    <button class="iconbtn" id="renameClient" title="Renommer">✎</button>
+    <button class="iconbtn" id="delClient" title="Supprimer ce client">🗑</button>
+  </div>
+  <nav>
+    <button data-tab="batch" class="active">Import groupé</button>
+    <button data-tab="import">Import simple</button>
+    <button data-tab="dashboard">Reporting</button>
+    <button data-tab="data">Données</button>
+    <button data-tab="settings">Objectifs</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ================= IMPORT GROUPÉ ================= -->
+  <section id="batch" class="tab active">
+    <div class="card">
+      <h2 style="margin:0 0 12px">Import groupé — tous les fichiers sur une page</h2>
+      <div class="row">
+        <div class="field">
+          <label>Client concerné</label>
+          <div style="display:flex;gap:6px">
+            <select id="batchClientSelect" style="min-width:200px"></select>
+            <button class="iconbtn" id="batchNewClient" title="Nouveau client">＋</button>
+          </div>
+        </div>
+        <div class="field"><label>Année</label><select id="batchYear"></select></div>
+        <div class="field"><label>Mois (si l'export n'a pas de date)</label><select id="batchMonth"></select></div>
+      </div>
+      <p class="note">Choisis le <b>client</b> et l'<b>année</b>, dépose chaque export dans sa case (le lien ↗ ouvre l'outil), puis clique « Analyser » — l'analyse s'affiche juste en dessous.</p>
+      <div id="batchGrid" class="batch-grid"></div>
+      <div style="margin-top:16px" class="row">
+        <button class="btn" id="batchAnalyze">Ajouter au reporting &amp; analyser</button>
+        <button class="btn sec" id="batchClear">Vider les fichiers déposés</button>
+      </div>
+    </div>
+    <div id="batchResult"></div>
+  </section>
+
+  <!-- ================= IMPORT SIMPLE ================= -->
+  <section id="import" class="tab">
+    <div class="card">
+      <h2>1. Déposer un export</h2>
+      <div class="row">
+        <div class="field">
+          <label>Plateforme</label>
+          <select id="impPlatform">
+            <option value="instagram">Instagram</option>
+            <option value="facebook">Facebook</option>
+            <option value="tiktok">TikTok</option>
+            <option value="linkedin">LinkedIn</option>
+            <option value="youtube">YouTube (Google Ads)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Type de données</label>
+          <select id="impType">
+            <option value="paid">Paid (export Ads Manager)</option>
+            <option value="organic">Organique (insights natifs)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Année</label>
+          <select id="impYear"></select>
+        </div>
+        <div class="field">
+          <label>Mois (si l'export n'a pas de colonne date)</label>
+          <select id="impMonth"></select>
+        </div>
+      </div>
+      <div id="exportHelp" class="helpbox"></div>
+      <div id="drop" class="drop">
+        Glisse ton fichier <b>CSV</b> ou <b>XLSX</b> ici, ou clique pour choisir.
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display:none">
+      </div>
+      <p class="note" id="impInfo"></p>
+    </div>
+
+    <div class="card" id="mapCard" style="display:none">
+      <h2>2. Vérifier le mappage des colonnes</h2>
+      <p class="note">L'app a deviné la correspondance. Corrige si besoin (sauvegardé pour les prochains imports de cette plateforme). Les champs vidéo sont nécessaires au calcul du hook/hold rate.</p>
+      <table class="map-tbl"><tbody id="mapBody"></tbody></table>
+      <div style="margin-top:16px" class="row">
+        <button class="btn" id="addBtn">Ajouter au reporting</button>
+        <button class="btn sec" id="cancelBtn">Annuler</button>
+      </div>
+      <p class="note" id="previewInfo" style="margin-top:14px"></p>
+    </div>
+  </section>
+
+  <!-- ================= DASHBOARD ================= -->
+  <section id="dashboard" class="tab">
+    <div class="card">
+      <div class="row" style="align-items:flex-end">
+        <div class="field"><label>Année</label><select id="fltYear"></select></div>
+        <div class="field"><label>Du mois</label><select id="fltFrom"></select></div>
+        <div class="field"><label>au mois</label><select id="fltTo"></select></div>
+        <div class="field"><label>Plateforme</label>
+          <select id="fltPlatform">
+            <option value="all">Toutes plateformes</option>
+            <option value="instagram">Instagram</option><option value="facebook">Facebook</option>
+            <option value="tiktok">TikTok</option>
+            <option value="linkedin">LinkedIn</option><option value="youtube">YouTube</option>
+          </select>
+        </div>
+        <div class="field"><label>Type</label>
+          <select id="fltType">
+            <option value="all">Paid + Organique</option>
+            <option value="paid">Paid uniquement</option>
+            <option value="organic">Organique uniquement</option>
+          </select>
+        </div>
+        <div class="field"><label>&nbsp;</label>
+          <div class="row" style="margin:0;gap:6px">
+            <button class="btn sec" data-preset="year">Année</button>
+            <button class="btn sec" data-preset="q1">T1</button>
+            <button class="btn sec" data-preset="q2">T2</button>
+            <button class="btn sec" data-preset="q3">T3</button>
+            <button class="btn sec" data-preset="q4">T4</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="dashContent"></div>
+  </section>
+
+  <!-- ================= DATA ================= -->
+  <section id="data" class="tab">
+    <div class="card">
+      <div class="flex-between">
+        <h2 style="margin:0">Données importées</h2>
+        <div class="row" style="margin:0">
+          <button class="btn sec" id="exportJson">Exporter (.json)</button>
+          <button class="btn sec" id="importJsonBtn">Importer (.json)</button>
+          <input type="file" id="importJson" accept=".json" style="display:none">
+          <button class="btn danger" id="clearAll">Tout effacer</button>
+        </div>
+      </div>
+      <p class="note">Le fichier .json contient tout ton historique : partage-le entre collègues pour avoir le même reporting, ou garde-le comme sauvegarde.</p>
+      <div id="dataTable"></div>
+    </div>
+    <div class="card">
+      <h2>Historique &amp; annulation</h2>
+      <p class="note">En cas de fausse manip (suppression, effacement, import en trop), reviens à un état précédent. « Restaurer » remet l'état <b>juste avant</b> l'action indiquée.</p>
+      <div id="histList" class="hist"></div>
+    </div>
+  </section>
+
+  <!-- ================= SETTINGS ================= -->
+  <section id="settings" class="tab">
+    <div class="card">
+      <h2>Objectifs annuels — <span id="objClientName"></span></h2>
+      <p class="note">Objectifs propres à ce client. %= Engagement/Hook/Hold ; Impressions & Budget média = totaux annuels visés ; Abonnés = total actuel et objectif (par plateforme).</p>
+      <div style="overflow-x:auto"><table><thead><tr><th>Plateforme</th><th class="num">Engagement %</th><th class="num">Impressions</th><th class="num">Hook %</th><th class="num">Hold %</th><th class="num">Budget média €</th><th class="num">Abonnés actuels</th><th class="num">Objectif abonnés</th></tr></thead>
+      <tbody id="objBody"></tbody></table></div>
+      <div style="margin-top:14px"><button class="btn" id="saveObj">Enregistrer</button></div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* ============================================================
+   ===================== PURE LOGIC START =====================
+   (fonctions sans DOM — testables indépendamment)
+   ============================================================ */
+
+// Plateformes & définitions des métriques dérivées
+const PLATFORMS = {
+  instagram:{label:"Instagram", color:"#e1306c"},
+  facebook: {label:"Facebook",  color:"#1877f2"},
+  tiktok:   {label:"TikTok",    color:"#ff0050"},
+  linkedin: {label:"LinkedIn",  color:"#0a66c2"},
+  youtube:  {label:"YouTube",   color:"#ff0000"},
+};
+// Instagram & Facebook utilisent la logique "Meta" (hook 3s, hold ThruPlay)
+function isMetaLike(p){ return p==="instagram"||p==="facebook"||p==="meta"; }
+
+// Champs canoniques cibles
+const FIELDS = [
+  {key:"campaign",   label:"Campagne",            req:false},
+  {key:"creative",   label:"Créa / publicité",    req:false},
+  {key:"date",       label:"Date (optionnel)",    req:false},
+  {key:"impressions",label:"Impressions",         req:true},
+  {key:"reach",      label:"Reach / couverture",  req:false},
+  {key:"spend",      label:"Dépense (paid)",      req:false},
+  {key:"interactions",label:"Interactions (total)", req:false},
+  {key:"likes",      label:"J'aime / réactions",   req:false},
+  {key:"comments",   label:"Commentaires",         req:false},
+  {key:"shares",     label:"Partages",             req:false},
+  {key:"saves",      label:"Enregistrements",      req:false},
+  {key:"followers",  label:"Abonnés nets",         req:false},
+  {key:"profile_views",label:"Visites de profil",  req:false},
+  {key:"hook_views", label:"Vues hook (vidéo)",    req:false},
+  {key:"hold_views", label:"Vues hold (vidéo)",    req:false},
+  {key:"completions",label:"Complétions (100%)",  req:false},
+];
+
+// Aliases par plateforme (FR + EN), comparés en minuscule sans accents
+const META_ALIASES = {
+  campaign:["campaign name","nom de la campagne","campagne","campaign","type de publication"],
+  creative:["ad name","nom de la publicite","publicite","titre","description"],
+  date:["heure de publication","day","jour","reporting starts","debut des rapports","date"],
+  impressions:["impressions","vues","views"],
+  reach:["reach","couverture"],
+  spend:["amount spent","montant depense","cost","depense"],
+  interactions:["post engagement","interactions","engagement","interactions sur la publication"],
+  likes:["mentions j'aime","reactions","reactions positives","likes","j'aime"],
+  comments:["commentaires","comments"],
+  shares:["partages","shares"],
+  saves:["enregistrements","saved","saves"],
+  followers:["followers en plus","nouveaux abonnes","abonnes nets","net followers","new followers","follows"],
+  profile_views:["visites du profil","profile views","visites de profil"],
+  hook_views:["3-second video plays","lectures de video de 3 secondes","video plays","lectures de video"],
+  hold_views:["thruplays"],
+  completions:["video plays at 100","lectures de video a 100"],
+};
+const ALIASES = {
+  instagram: META_ALIASES,
+  facebook:  META_ALIASES,
+  tiktok:{
+    campaign:["campaign name","campaign","nom de la campagne"],
+    creative:["ad name","video name","nom de la publicite","video title"],
+    date:["date","by day","stat time","time","jour"],
+    impressions:["impressions","video views","views","vues"],
+    reach:["reach"],
+    spend:["cost","total cost","spend","cout"],
+    interactions:["engagements","interactions","engagement"],
+    likes:["likes","mentions j'aime","j'aime"],
+    comments:["comments","commentaires"],
+    shares:["shares","partages"],
+    saves:["enregistrements","saves","saved"],
+    followers:["followers","net followers","nouveaux abonnes","new followers"],
+    profile_views:["profile views","visites du profil"],
+    hook_views:["2-second video views","video views 2s","2 second video views","vues video 2 secondes"],
+    hold_views:["6-second video views","video views 6s","6 second video views","vues video 6 secondes"],
+    completions:["video views at 100","completed video views","p100"],
+  },
+  linkedin:{
+    campaign:["campaign name","campaign","nom de la campagne"],
+    creative:["creative name","ad name","creative"],
+    date:["start date","date","day"],
+    impressions:["impressions"],
+    reach:["reach"],
+    spend:["total spent","amount spent","spend","cost"],
+    interactions:["reactions","engagements","interactions","clicks"],
+    hook_views:["video views","views","vues"],
+    hold_views:["video completions","completions"],
+    completions:["video completions","video played to 100","completions"],
+  },
+  youtube:{
+    campaign:["campaign","campagne"],
+    creative:["ad name","video title","ad","annonce"],
+    date:["day","date","jour"],
+    impressions:["impressions","impr."],
+    reach:["unique users","reach","utilisateurs uniques"],
+    spend:["cost","cout"],
+    interactions:["engagements","interactions","likes"],
+    hook_views:["views","video views","vues"],
+    hold_views:["video played to 100%","views at 100","quartile p100","lue jusqu'a 100"],
+    completions:["video played to 100%","views at 100","lue jusqu'a 100"],
+  },
+};
+
+// Objectifs par défaut par plateforme (engagement/hook/hold en fraction ; impressions = nombre annuel)
+// 'global' = objectif toutes plateformes confondues. impressions:0 => non défini.
+const OBJ_DEFAULTS={engagement:0.02, impressions:0, hook:0.40, hold:0.09, media_budget:0, followers_total:0, followers_goal:0};
+const DEFAULT_OBJECTIVES = {
+  global:   {...OBJ_DEFAULTS, hook:0.40, hold:0.09},
+  instagram:{...OBJ_DEFAULTS, hook:0.45, hold:0.10},
+  facebook: {...OBJ_DEFAULTS, hook:0.40, hold:0.10},
+  tiktok:   {...OBJ_DEFAULTS, hook:0.40, hold:0.08},
+  linkedin: {...OBJ_DEFAULTS, hook:0.25, hold:0.15},
+  youtube:  {...OBJ_DEFAULTS, hook:0.30, hold:0.20},
+};
+function defaultObjectives(){ return JSON.parse(JSON.stringify(DEFAULT_OBJECTIVES)); }
+
+const MONTHS = ["Janv","Févr","Mars","Avr","Mai","Juin","Juil","Août","Sept","Oct","Nov","Déc"];
+
+function normalizeHeader(s){
+  return String(s||"")
+    .replace(/^﻿/,"")        // BOM en tête
+    .replace(/^"+|"+$/g,"")        // guillemets encadrants
+    .toLowerCase()
+    .replace(/[‘’ʼ‛`´]/g,"'")  // apostrophes typographiques -> '
+    .normalize("NFD").replace(/[̀-ͯ]/g,"")        // enlève accents
+    .replace(/\s+/g," ").trim();
+}
+
+// Devine la colonne source pour chaque champ canonique
+function autoMap(headers, platform){
+  const aliases = ALIASES[platform] || {};
+  const normHeaders = headers.map(h=>({raw:h, n:normalizeHeader(h)}));
+  const mapping = {};
+  for(const f of FIELDS){
+    const list = aliases[f.key] || [];
+    let found = "";
+    // 1) match exact
+    for(const a of list){
+      const na = normalizeHeader(a);
+      const hit = normHeaders.find(h=>h.n===na);
+      if(hit){found=hit.raw;break;}
+    }
+    // 2) match "contient" : l'en-tête contient l'alias (ex "Amount spent (EUR)" contient "amount spent").
+    //    On ne fait PAS l'inverse (alias contient en-tête) qui happerait à tort
+    //    "Video Views" via l'alias "video views 2s".
+    if(!found){
+      for(const a of list){
+        const na = normalizeHeader(a);
+        if(na.length<4) continue;                 // évite les matches triviaux
+        const hit = normHeaders.find(h=>h.n.includes(na));
+        if(hit){found=hit.raw;break;}
+      }
+    }
+    mapping[f.key]=found;
+  }
+  return mapping;
+}
+
+function toNumber(v){
+  if(v===null||v===undefined||v==="") return 0;
+  if(typeof v==="number") return isFinite(v)?v:0;
+  // "1 234,56" / "1,234.56" / "12.3%" / "€1 200"
+  let s=String(v).replace(/[%€$\s ]/g,"").trim();
+  if(s===""||s==="-") return 0;
+  if(s.indexOf(",")>-1 && s.indexOf(".")>-1){
+    s = s.replace(/\./g,"").replace(",", ".");      // format FR 1.234,56
+  } else if(s.indexOf(",")>-1){
+    s = s.replace(",", ".");                          // virgule décimale
+  }
+  const n=parseFloat(s);
+  return isFinite(n)?n:0;
+}
+
+function parseMonth(dateStr, fallbackMonth){
+  if(dateStr===""||dateStr===null||dateStr===undefined) return fallbackMonth;
+  if(dateStr instanceof Date && !isNaN(dateStr)) return dateStr.getMonth()+1;
+  if(typeof dateStr==="number" && isFinite(dateStr)){
+    // numéro de série Excel (jours depuis 1899-12-30 ; 25569 = 1970-01-01)
+    const d=new Date(Math.round((dateStr-25569)*86400000));
+    if(!isNaN(d)) return d.getUTCMonth()+1;
+    return fallbackMonth;
+  }
+  const s=String(dateStr).trim().toLowerCase();
+  if(!s) return fallbackMonth;
+  // mois en toutes lettres / abrégés (FR + EN)
+  const NAMES={janv:1,janu:1,"févr":2,fevr:2,febr:2,mars:3,marc:3,avri:4,apri:4,mai:5,may:5,
+    juin:6,june:6,juil:7,july:7,"août":8,aout:8,augu:8,sept:9,octo:10,nove:11,"déc":12,dece:12};
+  for(const k in NAMES){ if(s.includes(k)) return NAMES[k]; }
+  let m;
+  if((m=s.match(/(\d{4})[-/](\d{1,2})/))) return parseInt(m[2],10);            // YYYY-MM
+  if((m=s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/))){
+    const a=+m[1], b=+m[2];
+    if(a>12) return b;                       // DD/MM(/YYYY)
+    if(b>12) return a;                       // MM/DD(/YYYY) (format US Meta)
+    return s.includes("/")? a : b;           // ambigu : "/" => US (MM/DD), "-" => DD-MM
+  }
+  const d=new Date(dateStr);
+  if(!isNaN(d)) return d.getMonth()+1;
+  return fallbackMonth;
+}
+
+function safeDiv(a,b){ return (b&&b!==0)? a/b : null; }
+
+// Détection du format d'une créa par mot-clé (dans le nom de créa/campagne)
+const FORMAT_RULES = [
+  {label:"Dans le quotidien", kw:["quotidien","dans le quotidien"]},
+  {label:"Influence",         kw:["influence","influ","collab"]},
+  {label:"UGC",               kw:["ugc"]},
+  {label:"Spotlight hôtel",   kw:["spotlight","hotel","hôtel"]},
+  {label:"Trend",             kw:["trend","tendance"]},
+  {label:"Bon plan",          kw:["bon plan","bonplan","offre","promo","carrousel","carousel","mea"]},
+];
+function detectFormat(text){
+  const s=normalizeHeader(text);
+  for(const r of FORMAT_RULES){ if(r.kw.some(k=>s.includes(normalizeHeader(k)))) return r.label; }
+  return "Autre";
+}
+
+// Calcule hook/hold/completion + CPM/CPE/engagement selon la plateforme
+function computeRates(platform, r){
+  const imp=r.impressions, hook=r.hook_views, hold=r.hold_views, comp=r.completions;
+  let hook_rate = hook>0 ? safeDiv(hook,imp) : null, hold_rate=null, completion_rate=null;
+  if(isMetaLike(platform)){
+    hold_rate=safeDiv(hold,hook);
+    completion_rate=safeDiv(comp,hook);
+  }else if(platform==="tiktok"){
+    hold_rate=safeDiv(hold,hook);
+    completion_rate=safeDiv(comp,imp);
+  }else{ // linkedin / youtube : pas de "vues hold" distinctes -> hold = complétions/vues
+    hold_rate=safeDiv(comp||hold,hook);
+    completion_rate=safeDiv(comp||hold,hook);
+  }
+  // métriques média / engagement (lexique B&B : CPM = €/1000 impressions, CPE = €/engagement)
+  const cpm = imp? safeDiv(r.spend*1000, imp) : null;
+  const cpe = r.interactions? safeDiv(r.spend, r.interactions) : null;
+  const engagement_rate = safeDiv(r.interactions, imp);
+  return {hook_rate, hold_rate, completion_rate, cpm, cpe, engagement_rate};
+}
+
+// Transforme les lignes brutes (objets {header:val}) en lignes normalisées
+function normalizeRows(rawRows, mapping, platform, type, year, fallbackMonth){
+  const out=[];
+  for(const raw of rawRows){
+    const get=(k)=> mapping[k]? raw[mapping[k]] : undefined;
+    const rec={
+      platform, type:(type||"paid"), year:Number(year),
+      month: parseMonth(get("date"), Number(fallbackMonth)),
+      campaign: (get("campaign")!==undefined? String(get("campaign")):"(non précisé)").trim()||"(non précisé)",
+      creative: (get("creative")!==undefined? String(get("creative")):"(non précisé)").trim()||"(non précisé)",
+      impressions: toNumber(get("impressions")),
+      reach: toNumber(get("reach")),
+      spend: toNumber(get("spend")),
+      likes: toNumber(get("likes")),
+      comments: toNumber(get("comments")),
+      shares: toNumber(get("shares")),
+      saves: toNumber(get("saves")),
+      followers: toNumber(get("followers")),
+      profile_views: toNumber(get("profile_views")),
+      hook_views: toNumber(get("hook_views")),
+      hold_views: toNumber(get("hold_views")),
+      completions: toNumber(get("completions")),
+    };
+    rec.format = detectFormat(rec.creative+" "+rec.campaign);
+    // interactions = colonne explicite si présente, sinon somme (j'aime + comm. + partages + enreg.)
+    const explicitInter=toNumber(get("interactions"));
+    rec.interactions = explicitInter>0 ? explicitInter : (rec.likes+rec.comments+rec.shares+rec.saves);
+    // ignore lignes totalement vides (sommes/totaux)
+    if(rec.impressions===0 && rec.hook_views===0 && rec.spend===0 && rec.interactions===0) continue;
+    Object.assign(rec, computeRates(platform, rec));
+    rec.id = platform+"|"+rec.type+"|"+rec.year+"|"+rec.month+"|"+rec.campaign+"|"+rec.creative+"|"+Math.random().toString(36).slice(2,7);
+    out.push(rec);
+  }
+  return out;
+}
+
+// Agrège un ensemble de lignes : somme des briques + taux recalculés (jamais une moyenne de taux)
+function aggregate(rows){
+  const a={impressions:0,reach:0,spend:0,interactions:0,hook_views:0,hold_views:0,completions:0,
+    followers:0,profile_views:0,likes:0,comments:0,shares:0,saves:0,count:rows.length};
+  for(const r of rows){
+    a.impressions+=r.impressions; a.reach+=r.reach; a.spend+=r.spend; a.interactions+=(r.interactions||0);
+    a.hook_views+=r.hook_views; a.hold_views+=r.hold_views; a.completions+=r.completions;
+    a.followers+=(r.followers||0); a.profile_views+=(r.profile_views||0);
+    a.likes+=(r.likes||0); a.comments+=(r.comments||0); a.shares+=(r.shares||0); a.saves+=(r.saves||0);
+  }
+  a.hook_rate=a.hook_views>0? safeDiv(a.hook_views,a.impressions):null;
+  a.hold_rate=safeDiv(a.hold_views||a.completions,a.hook_views);
+  a.completion_rate=safeDiv(a.completions,a.hook_views);
+  a.engagement_rate=safeDiv(a.interactions,a.impressions);
+  a.cpm=a.impressions? safeDiv(a.spend*1000,a.impressions):null;
+  a.cpe=a.interactions? safeDiv(a.spend,a.interactions):null;
+  return a;
+}
+
+// Agrégation mensuelle -> 12 points
+function monthlySeries(rows){
+  const byMonth={};
+  for(let m=1;m<=12;m++) byMonth[m]=[];
+  for(const r of rows){ if(byMonth[r.month]) byMonth[r.month].push(r); }
+  return MONTHS.map((label,i)=>({month:i+1,label,...aggregate(byMonth[i+1])}));
+}
+
+// Agrégation par clé (campagne ou créa)
+function groupBy(rows, key){
+  const groups={};
+  for(const r of rows){
+    const k=r[key]||"(non précisé)";
+    (groups[k]=groups[k]||[]).push(r);
+  }
+  return Object.entries(groups).map(([name,rs])=>({name, platform:rs[0].platform, ...aggregate(rs)}));
+}
+
+if(typeof module!=="undefined" && module.exports){
+  module.exports={normalizeHeader,autoMap,toNumber,parseMonth,computeRates,
+    normalizeRows,aggregate,monthlySeries,groupBy,FIELDS,ALIASES,DEFAULT_OBJECTIVES,PLATFORMS};
+}
+/* ====================== PURE LOGIC END ====================== */
+
+
+/* ============================================================
+   ===================== UI / DOM / STATE =====================
+   ============================================================ */
+const LS_DATA="rsa_data_v2", LS_OBJ="rsa_obj_v2", LS_MAP="rsa_map_v1",
+      LS_CLIENTS="rsa_clients_v1", LS_CUR="rsa_curclient_v1", LS_HIST="rsa_hist_v1";
+// STATE.objectives = { [clientId]: {global,instagram,...} }
+// chaque ligne de STATE.rows possède un champ .client (id)
+let STATE = { rows:[], objectives:{}, mappings:{}, clients:[], currentClient:null, history:[] };
+let pending = null;
+let charts = [];
+
+function uid(){ return "c"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+function load(){
+  try{ STATE.rows=JSON.parse(localStorage.getItem(LS_DATA))||[]; }catch(e){ STATE.rows=[]; }
+  try{ STATE.objectives=JSON.parse(localStorage.getItem(LS_OBJ))||{}; }catch(e){ STATE.objectives={}; }
+  try{ STATE.mappings=JSON.parse(localStorage.getItem(LS_MAP))||{}; }catch(e){ STATE.mappings={}; }
+  try{ STATE.clients=JSON.parse(localStorage.getItem(LS_CLIENTS))||[]; }catch(e){ STATE.clients=[]; }
+  try{ STATE.history=JSON.parse(localStorage.getItem(LS_HIST))||[]; }catch(e){ STATE.history=[]; }
+  STATE.currentClient=localStorage.getItem(LS_CUR)||null;
+  if(!STATE.clients.length){ const id=uid(); STATE.clients=[{id,name:"Mon premier client"}]; STATE.currentClient=id; saveClients(); }
+  if(!STATE.clients.find(c=>c.id===STATE.currentClient)) STATE.currentClient=STATE.clients[0].id;
+  ensureObjectives(STATE.currentClient);
+}
+function ensureObjectives(clientId){
+  if(!STATE.objectives[clientId]) STATE.objectives[clientId]=defaultObjectives();
+  for(const p in DEFAULT_OBJECTIVES){
+    if(!STATE.objectives[clientId][p]) STATE.objectives[clientId][p]={...DEFAULT_OBJECTIVES[p]};
+    else for(const k in DEFAULT_OBJECTIVES[p]){ if(STATE.objectives[clientId][p][k]===undefined) STATE.objectives[clientId][p][k]=DEFAULT_OBJECTIVES[p][k]; }
+  }
+}
+function objFor(platformKey){ return STATE.objectives[STATE.currentClient][platformKey]; }
+function clientName(){ const c=STATE.clients.find(c=>c.id===STATE.currentClient); return c?c.name:"—"; }
+
+function saveData(){ localStorage.setItem(LS_DATA, JSON.stringify(STATE.rows)); }
+function saveObj(){ localStorage.setItem(LS_OBJ, JSON.stringify(STATE.objectives)); }
+function saveMap(){ localStorage.setItem(LS_MAP, JSON.stringify(STATE.mappings)); }
+function saveClients(){ localStorage.setItem(LS_CLIENTS, JSON.stringify(STATE.clients)); localStorage.setItem(LS_CUR, STATE.currentClient); }
+function saveHist(){
+  try{ localStorage.setItem(LS_HIST, JSON.stringify(STATE.history)); }
+  catch(e){ STATE.history=STATE.history.slice(0,5); try{ localStorage.setItem(LS_HIST, JSON.stringify(STATE.history)); }catch(_){} }
+}
+
+/* ---------- historique / annulation ---------- */
+function snapshot(){
+  return { rows:JSON.parse(JSON.stringify(STATE.rows)),
+    clients:JSON.parse(JSON.stringify(STATE.clients)),
+    objectives:JSON.parse(JSON.stringify(STATE.objectives)),
+    currentClient:STATE.currentClient };
+}
+function pushHistory(label){
+  const e={id:uid(), label, ts:Date.now(), snap:snapshot()};
+  STATE.history.unshift(e);
+  STATE.history=STATE.history.slice(0,12);   // garde les 12 derniers états
+  saveHist(); renderHistory();
+  return e.id;
+}
+function restoreHistory(id){
+  const e=STATE.history.find(h=>h.id===id); if(!e) return;
+  // on sauvegarde l'état courant pour pouvoir « refaire »
+  pushHistory("État courant (avant restauration)");
+  const s=e.snap;
+  STATE.rows=JSON.parse(JSON.stringify(s.rows));
+  STATE.clients=JSON.parse(JSON.stringify(s.clients));
+  STATE.objectives=JSON.parse(JSON.stringify(s.objectives));
+  STATE.currentClient = STATE.clients.find(c=>c.id===s.currentClient)? s.currentClient : (STATE.clients[0]&&STATE.clients[0].id);
+  saveData(); saveObj(); saveClients();
+  renderClientSelect(); renderHistory(); refreshAll();
+  toast("État restauré.");
+}
+function renderHistory(){
+  const box=$("histList"); if(!box) return;
+  if(!STATE.history.length){ box.innerHTML='<div class="empty">Aucune action enregistrée pour l\'instant.</div>'; return; }
+  box.innerHTML=STATE.history.map(h=>`<div class="he">
+    <span class="t">${new Date(h.ts).toLocaleString("fr-FR")}</span>
+    <span class="lbl">${escapeHtml(h.label)}</span>
+    <button class="btn sec" data-hid="${h.id}">↶ Revenir avant</button></div>`).join("");
+  box.querySelectorAll("button[data-hid]").forEach(b=>b.onclick=()=>{
+    if(confirm("Revenir à l'état juste avant « "+ (STATE.history.find(x=>x.id===b.dataset.hid)||{}).label +" » ?")) restoreHistory(b.dataset.hid);
+  });
+}
+let toastTimer=null;
+function toast(msg, undoId){
+  const el=$("toast"); if(!el) return;
+  el.innerHTML=`<span>${escapeHtml(msg)}</span>`+(undoId?`<button id="toastUndo">↶ Annuler</button>`:"");
+  el.classList.add("show");
+  if(undoId){ const u=$("toastUndo"); if(u) u.onclick=()=>{ el.classList.remove("show"); restoreHistory(undoId); }; }
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove("show"), 9000);
+}
+
+const $=id=>document.getElementById(id);
+const pct=v=> v===null||v===undefined? "—" : (v*100).toFixed(1)+" %";
+const intf=v=> v===null||v===undefined? "—" : Math.round(v).toLocaleString("fr-FR");
+const eur=v=> v===null||v===undefined? "—" : v.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:0})+" €";
+
+/* ---------- navigation ---------- */
+const TABS=["batch","import","dashboard","data","settings"];
+function activateTab(tab){
+  if(!TABS.includes(tab)) tab="batch";
+  document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===tab));
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.id===tab));
+  if(tab==="batch") renderBatch();
+  else if(tab==="dashboard") renderDashboard();
+  else if(tab==="data") renderData();
+  else if(tab==="settings") renderSettings();
+}
+document.querySelectorAll("nav button").forEach(b=>{
+  b.onclick=()=>{ const t=b.dataset.tab; if(location.hash.slice(1)===t) activateTab(t); else location.hash=t; };
+});
+window.addEventListener("hashchange",()=>activateTab(location.hash.slice(1)));
+
+/* ---------- gestion des clients ---------- */
+function renderClientSelect(){
+  const sorted=STATE.clients.slice().sort((a,b)=>a.name.localeCompare(b.name));
+  const opts=sorted.map(c=>`<option value="${c.id}" ${c.id===STATE.currentClient?"selected":""}>${escapeHtml(c.name)}</option>`).join("");
+  $("clientSelect").innerHTML=opts;
+  const b=$("batchClientSelect"); if(b){ b.innerHTML=opts; b.value=STATE.currentClient; }
+}
+function switchClient(id){
+  if(!id||id===STATE.currentClient){ /* on re-render quand même */ }
+  STATE.currentClient=id; ensureObjectives(id); saveClients();
+  batchStaging={}; const br=$("batchResult"); if(br) br.innerHTML="";
+  $("impInfo").textContent=""; renderClientSelect(); refreshAll();
+}
+function refreshAll(){
+  // re-render l'onglet actif après changement de client
+  const active=document.querySelector("nav button.active");
+  const tab=active?active.dataset.tab:"batch";
+  if(tab==="batch") renderBatch();
+  else if(tab==="dashboard") renderDashboard();
+  else if(tab==="data") renderData();
+  else if(tab==="settings") renderSettings();
+}
+$("clientSelect").onchange=e=>switchClient(e.target.value);
+$("batchClientSelect").onchange=e=>switchClient(e.target.value);
+function createClient(){
+  const name=prompt("Nom du nouveau client :"); if(!name) return;
+  const id=uid(); STATE.clients.push({id,name:name.trim()}); switchClient(id);
+}
+$("newClient").onclick=createClient;
+$("batchNewClient").onclick=createClient;
+$("renameClient").onclick=()=>{
+  const c=STATE.clients.find(c=>c.id===STATE.currentClient); if(!c) return;
+  const name=prompt("Renommer le client :",c.name); if(!name) return;
+  c.name=name.trim(); saveClients(); renderClientSelect(); refreshAll();
+};
+$("delClient").onclick=()=>{
+  if(STATE.clients.length<=1){ alert("Impossible de supprimer le dernier client."); return; }
+  const c=STATE.clients.find(c=>c.id===STATE.currentClient);
+  const n=STATE.rows.filter(r=>r.client===STATE.currentClient).length;
+  if(!confirm(`Supprimer le client « ${c.name} » et ses ${n} lignes de données ?`)) return;
+  const h=pushHistory(`Suppression du client « ${c.name} »`);
+  STATE.rows=STATE.rows.filter(r=>r.client!==STATE.currentClient);
+  delete STATE.objectives[STATE.currentClient];
+  STATE.clients=STATE.clients.filter(x=>x.id!==STATE.currentClient);
+  STATE.currentClient=STATE.clients[0].id; ensureObjectives(STATE.currentClient);
+  saveData(); saveObj(); saveClients(); renderClientSelect(); refreshAll();
+  toast(`Client « ${c.name} » supprimé.`, h);
+};
+
+/* ---------- selects année/mois ---------- */
+function fillYearMonth(){
+  const yNow=new Date().getFullYear();
+  const years=[]; for(let y=yNow+1;y>=yNow-4;y--) years.push(y);
+  for(const sel of [$("impYear"),$("fltYear"),$("batchYear")]){
+    sel.innerHTML=years.map(y=>`<option value="${y}">${y}</option>`).join("");
+    sel.value=yNow;
+  }
+  const monthOpts=MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join("");
+  for(const sel of [$("impMonth"),$("batchMonth")]){ sel.innerHTML=monthOpts; sel.value=new Date().getMonth()+1; }
+  $("fltFrom").innerHTML=monthOpts; $("fltFrom").value=1;
+  $("fltTo").innerHTML=monthOpts;   $("fltTo").value=12;
+}
+
+/* ---------- aide : quel fichier télécharger ---------- */
+const EXPORT_GUIDE = {
+  instagram:{
+    paid:{url:"https://adsmanager.facebook.com/adsmanager/manage/ads", site:"adsmanager.facebook.com",
+      where:"Meta Ads Manager → onglet <b>Publicités</b> → filtre plateforme = <b>Instagram</b> → bouton <code>Rapports ▸ Exporter au format CSV/XLSX</code>",
+      file:"Export de l'Ads Manager (un fichier .csv ou .xlsx)",
+      cols:"Nom de la campagne · Nom de la publicité · Impressions · Couverture · Montant dépensé · Lectures de vidéo de 3 s · ThruPlays · Lectures à 100 % · Interactions"},
+    organic:{url:"https://business.facebook.com/latest/insights/content", site:"business.facebook.com",
+      where:"Meta Business Suite → <b>Insights</b> → <b>Contenu</b> → compte Instagram → <code>Exporter les données</code>",
+      file:"Export « Contenu » de Business Suite (Instagram, .csv)",
+      cols:"Heure de publication · Description · Type de publication · Vues · Couverture · Mentions J'aime · Commentaires · Partages · Enregistrements"},
+  },
+  facebook:{
+    paid:{url:"https://adsmanager.facebook.com/adsmanager/manage/ads", site:"adsmanager.facebook.com",
+      where:"Meta Ads Manager → onglet <b>Publicités</b> → filtre plateforme = <b>Facebook</b> → <code>Rapports ▸ Exporter</code>",
+      file:"Export de l'Ads Manager (un fichier .csv ou .xlsx)",
+      cols:"Nom de la campagne · Nom de la publicité · Impressions · Couverture · Montant dépensé · Lectures de vidéo de 3 s · ThruPlays · Lectures à 100 % · Interactions"},
+    organic:{url:"https://business.facebook.com/latest/insights/content", site:"business.facebook.com",
+      where:"Meta Business Suite → <b>Insights</b> → <b>Contenu</b> → Page Facebook → <code>Exporter les données</code>",
+      file:"Export « Contenu » de Business Suite (Facebook, .csv)",
+      cols:"Heure de publication · Description · Type de publication · Vues · Couverture · Mentions J'aime · Commentaires · Partages · Enregistrements"},
+  },
+  tiktok:{
+    paid:{url:"https://ads.tiktok.com/i18n/perf/report", site:"ads.tiktok.com",
+      where:"TikTok Ads Manager → <b>Rapports</b> → Rapport personnalisé → <code>Télécharger</code>",
+      file:"Rapport personnalisé TikTok Ads (.csv/.xlsx)",
+      cols:"Campaign name · Ad name · Impressions · Reach · Cost · 2-second video views · 6-second video views · Video views at 100%"},
+    organic:{url:"https://www.tiktok.com/tiktokstudio/analytics", site:"tiktok.com/tiktokstudio",
+      where:"TikTok Studio → <b>Analytics</b> → <b>Overview</b> → <code>Download data</code> (fichier .zip → Overview.xlsx)",
+      file:"Overview.xlsx (données quotidiennes du compte)",
+      cols:"Date · Video Views · Profile Views · Likes · Comments · Shares"},
+  },
+  linkedin:{
+    paid:{url:"https://www.linkedin.com/campaignmanager/", site:"linkedin.com/campaignmanager",
+      where:"LinkedIn Campaign Manager → <b>Export</b> → <code>Performance par publicité (CSV)</code>",
+      file:"Export Campaign Manager",
+      cols:"Campaign Name · Creative Name · Impressions · Total Spent · Video Views · Video Completions · Reactions"},
+    organic:{url:"https://www.linkedin.com/company/", site:"linkedin.com (admin Page)",
+      where:"LinkedIn → Admin de la Page → <b>Analytics</b> → <code>Export</code>",
+      file:"Export Analytics de la Page LinkedIn",
+      cols:"Date · Post · Impressions · Reactions/Engagements"},
+  },
+  youtube:{
+    paid:{url:"https://ads.google.com/", site:"ads.google.com",
+      where:"Google Ads → campagnes vidéo → ajouter les colonnes vidéo → <code>Télécharger ▸ .csv</code>",
+      file:"Export Google Ads (campagnes vidéo)",
+      cols:"Campaign · Ad name · Impressions · Cost · Views · Vidéo lue à 100 %"},
+    organic:{url:"https://studio.youtube.com/", site:"studio.youtube.com",
+      where:"YouTube Studio → <b>Analytics</b> → <code>Exporter ▸ Google Sheets / CSV</code>",
+      file:"Export YouTube Studio Analytics",
+      cols:"Date · Vidéo · Impressions · Vues · Lectures à 100 % · J'aime/Commentaires"},
+  },
+};
+function renderExportHelp(){
+  const p=$("impPlatform").value, t=$("impType").value;
+  const g=(EXPORT_GUIDE[p]||{})[t];
+  if(!g){ $("exportHelp").innerHTML=""; return; }
+  const tl=t==="paid"?"Paid":"Organique";
+  const link=g.url? `<div style="margin-top:8px"><a class="btn" style="display:inline-block;text-decoration:none;padding:7px 14px" href="${g.url}" target="_blank" rel="noopener">↗ Ouvrir ${g.site}</a></div>` : "";
+  $("exportHelp").innerHTML=`
+    <h4>📥 Fichier à télécharger — ${PLATFORMS[p].label} · ${tl}</h4>
+    <div><b>Où :</b> <span class="path">${g.where}</span></div>
+    <div><b>Quoi :</b> ${g.file}</div>
+    <div class="cols"><b>Colonnes à inclure :</b> ${g.cols}</div>
+    ${link}`;
+}
+$("impPlatform").addEventListener("change",renderExportHelp);
+$("impType").addEventListener("change",renderExportHelp);
+
+/* ---------- import : lecture fichier ---------- */
+const drop=$("drop");
+drop.onclick=()=>$("fileInput").click();
+["dragover","dragenter"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add("hover");}));
+["dragleave","drop"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove("hover");}));
+drop.addEventListener("drop",ev=>{ if(ev.dataTransfer.files[0]) readFile(ev.dataTransfer.files[0]); });
+$("fileInput").onchange=ev=>{ if(ev.target.files[0]) readFile(ev.target.files[0]); };
+
+// Fusionne auto-détection + corrections sauvegardées (en ignorant les entrées
+// vides ou pointant vers une colonne absente -> auto-réparation des vieux mappings).
+function mergeMapping(headers, platform, saved){
+  const mapping=autoMap(headers,platform);
+  if(saved){ for(const k in saved){ if(saved[k] && headers.includes(saved[k])) mapping[k]=saved[k]; } }
+  return mapping;
+}
+function readFile(file){
+  const isText=isTextFile(file.name);
+  const reader=new FileReader();
+  reader.onload=e=>{
+    let wb;
+    try{ wb=workbookFromReaderResult(e.target.result, isText); }
+    catch(err){ $("impInfo").innerHTML="<span class='bad'>Fichier illisible : "+err.message+"</span>"; return; }
+    const sheet=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(sheet,{defval:""});
+    if(!rows.length){ $("impInfo").innerHTML="<span class='bad'>Aucune ligne détectée.</span>"; return; }
+    const headers=Object.keys(rows[0]);
+    const platform=$("impPlatform").value;
+    const mapping=mergeMapping(headers, platform, STATE.mappings[platform+"|"+$("impType").value]);
+    pending={platform, type:$("impType").value, year:$("impYear").value, month:$("impMonth").value, headers, rawRows:rows, mapping};
+    $("impInfo").innerHTML=`Fichier <b>${file.name}</b> — ${rows.length} lignes, ${headers.length} colonnes détectées.`;
+    renderMapping();
+  };
+  if(isText) reader.readAsText(file,"UTF-8"); else reader.readAsArrayBuffer(file);
+}
+
+function renderMapping(){
+  const {headers,mapping}=pending;
+  const opts=h=>`<option value="">— ignorer —</option>`+headers.map(x=>`<option value="${x.replace(/"/g,'&quot;')}" ${x===h?"selected":""}>${x}</option>`).join("");
+  $("mapBody").innerHTML=FIELDS.map(f=>`
+    <tr>
+      <td>${f.label} ${f.req?'<span class="bad">*</span>':''}</td>
+      <td><select data-field="${f.key}">${opts(mapping[f.key])}</select></td>
+    </tr>`).join("");
+  $("mapBody").querySelectorAll("select").forEach(s=>{
+    s.onchange=()=>{ pending.mapping[s.dataset.field]=s.value; updatePreview(); };
+  });
+  $("mapCard").style.display="block";
+  updatePreview();
+}
+
+function updatePreview(){
+  const norm=normalizeRows(pending.rawRows,pending.mapping,pending.platform,pending.type,pending.year,pending.month);
+  const agg=aggregate(norm);
+  const missing=FIELDS.filter(f=>f.req && !pending.mapping[f.key]).map(f=>f.label);
+  let html="";
+  if(missing.length) html+=`<span class="bad">⚠ Champs obligatoires non mappés : ${missing.join(", ")}.</span><br>`;
+  if(pending.type==="paid" && !pending.mapping.hook_views) html+=`<span class="warn">ℹ Aucune colonne « vues hook » mappée → le hook rate ne sera pas calculé pour cet import.</span><br>`;
+  html+=`Aperçu : <b>${norm.length}</b> lignes valides · hook rate <b>${pct(agg.hook_rate)}</b> · hold rate <b>${pct(agg.hold_rate)}</b> · engagement <b>${pct(agg.engagement_rate)}</b> · ${intf(agg.impressions)} impressions.`;
+  $("previewInfo").innerHTML=html;
+  $("addBtn").disabled=missing.length>0;
+  $("addBtn").style.opacity=missing.length?.5:1;
+}
+
+$("cancelBtn").onclick=()=>{ pending=null; $("mapCard").style.display="none"; $("impInfo").textContent=""; };
+$("addBtn").onclick=()=>{
+  const norm=normalizeRows(pending.rawRows,pending.mapping,pending.platform,pending.type,pending.year,pending.month);
+  norm.forEach(r=>r.client=STATE.currentClient);
+  const tl=pending.type==="paid"?"Paid":"Organique";
+  const h=pushHistory(`Import simple — ${norm.length} lignes (${PLATFORMS[pending.platform].label} ${tl}, ${clientName()})`);
+  STATE.rows=STATE.rows.concat(norm); saveData();
+  STATE.mappings[pending.platform+"|"+pending.type]=pending.mapping; saveMap();
+  $("mapCard").style.display="none";
+  $("impInfo").innerHTML=`<span class="good">✓ ${norm.length} lignes ajoutées (${PLATFORMS[pending.platform].label} · ${tl} · ${pending.year}).</span>`;
+  toast(`${norm.length} lignes ajoutées.`, h);
+  pending=null;
+};
+
+/* ---------- dashboard ---------- */
+["fltYear","fltPlatform","fltType","fltFrom","fltTo"].forEach(id=>$(id).onchange=renderDashboard);
+document.querySelectorAll("[data-preset]").forEach(b=>b.onclick=()=>{
+  const p=b.dataset.preset, q={q1:[1,3],q2:[4,6],q3:[7,9],q4:[10,12],year:[1,12]}[p];
+  $("fltFrom").value=q[0]; $("fltTo").value=q[1]; renderDashboard();
+});
+
+function filteredRows(){
+  const y=Number($("fltYear").value), p=$("fltPlatform").value, t=$("fltType").value;
+  let from=Number($("fltFrom").value), to=Number($("fltTo").value);
+  if(from>to){ const tmp=from; from=to; to=tmp; }
+  return STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===y
+    && r.month>=from && r.month<=to
+    && (p==="all"||r.platform===p) && (t==="all"||(r.type||"paid")===t));
+}
+
+function destroyCharts(){ charts.forEach(c=>c.destroy()); charts=[]; }
+
+function colorFor(val,target){
+  if(val===null||target===null) return "";
+  if(val>=target) return "good";
+  if(val>=target*0.75) return "warn";
+  return "bad";
+}
+
+function renderDashboard(){
+  destroyCharts();
+  const rows=filteredRows();
+  const box=$("dashContent");
+  if(!rows.length){ box.innerHTML='<div class="card"><div class="empty">Aucune donnée pour ce filtre. Importe des exports dans l\'onglet « Importer ».</div></div>'; return; }
+  const agg=aggregate(rows);
+  const platform=$("fltPlatform").value;
+  const obj = objFor(platform==="all"?"global":platform);
+
+  // cumul à date (toute l'année, mêmes filtres plateforme/type)
+  const yr=Number($("fltYear").value), tflt=$("fltType").value;
+  const cumRows=STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===yr
+    && (platform==="all"||r.platform===platform) && (tflt==="all"||(r.type||"paid")===tflt));
+  const aggCum=aggregate(cumRows);
+  const platKeys=["instagram","facebook","tiktok","linkedin","youtube"];
+  const sumObj=k=> platKeys.reduce((s,p)=>s+(objFor(p)[k]||0),0);
+  const budget = platform==="all"? sumObj("media_budget") : obj.media_budget;
+  const budgetPct = budget>0? aggCum.spend/budget : null;
+  const folTotal = platform==="all"? sumObj("followers_total") : obj.followers_total;
+  const folGoal  = platform==="all"? sumObj("followers_goal")  : obj.followers_goal;
+  const folPct   = folGoal>0? folTotal/folGoal : null;
+
+  // tuiles métriques (bento) vs objectifs du client
+  const imprPct = obj.impressions>0 ? aggCum.impressions/obj.impressions : null;
+  const C={good:"var(--green)",warn:"var(--amber)",bad:"var(--red)","":"var(--accent)"};
+  const mTile=(span,label,val,sub,cls,ratio)=>`<div class="tile ${span}"><div class="metric">
+      <span class="lbl">${label}</span><span class="val ${cls}">${val}</span><span class="sub">${sub||""}</span>
+      ${ratio!=null&&isFinite(ratio)?`<span class="bar"><i style="width:${Math.min(100,Math.max(3,ratio*100)).toFixed(0)}%;background:${C[cls]||C['']}"></i></span>`:""}
+    </div></div>`;
+  const periodLbl = MONTHS[Number($("fltFrom").value)-1]+"–"+MONTHS[Number($("fltTo").value)-1]+" "+$("fltYear").value;
+  const platLbl = platform!=="all"?PLATFORMS[platform].label:"toutes plateformes";
+  box.innerHTML=`
+    <div class="bento">
+      <div class="tile b12" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
+        <div style="font-size:15px"><b>${escapeHtml(clientName())}</b> · ${platLbl}</div>
+        <div style="color:var(--muted)">${periodLbl}</div></div>
+      ${mTile("b3","Engagement",pct(agg.engagement_rate),"objectif "+pct(obj.engagement),colorFor(agg.engagement_rate,obj.engagement),obj.engagement?agg.engagement_rate/obj.engagement:null)}
+      ${mTile("b3","Hook rate",pct(agg.hook_rate),"objectif "+pct(obj.hook),colorFor(agg.hook_rate,obj.hook),(obj.hook&&agg.hook_rate!=null)?agg.hook_rate/obj.hook:null)}
+      ${mTile("b3","Hold rate",pct(agg.hold_rate),"objectif "+pct(obj.hold),colorFor(agg.hold_rate,obj.hold),(obj.hold&&agg.hold_rate!=null)?agg.hold_rate/obj.hold:null)}
+      ${mTile("b3","Impressions (période)",intf(agg.impressions),"cumul année : "+intf(aggCum.impressions),"",null)}
+      ${mTile("b4","Budget média",eur(aggCum.spend),budget>0?(budgetPct*100).toFixed(0)+"% du budget "+eur(budget):"budget non défini",budgetPct===null?"":(budgetPct>1?"bad":budgetPct>=.8?"warn":"good"),budgetPct)}
+      ${mTile("b4","CPM moyen",agg.cpm!==null?agg.cpm.toFixed(2)+" €":"—","coût pour 1000 impressions","",null)}
+      ${mTile("b4","CPE moyen",agg.cpe!==null?agg.cpe.toFixed(2)+" €":"—","coût par engagement","",null)}
+      <div class="tile b8"><h3>Évolution — Hook & Hold rate</h3><div class="chart-md"><canvas id="chRates"></canvas></div></div>
+      <div class="tile b4"><h3>Impressions par plateforme</h3><div class="chart-sm" id="wrapDoImp"><canvas id="chDoImp"></canvas></div></div>
+      <div class="tile b8"><h3>Évolution — Impressions & Dépense</h3><div class="chart-md"><canvas id="chVol"></canvas></div></div>
+      <div class="tile b4"><h3>Dépense par plateforme</h3><div class="chart-sm" id="wrapDoSp"><canvas id="chDoSp"></canvas></div></div>
+      <div class="tile b4"><div class="metric"><span class="lbl">Croissance abonnés (période)</span>
+        <span class="val">${(agg.followers>=0?"+":"")+intf(agg.followers)}</span>
+        <span class="sub">${folTotal>0?"total "+intf(folTotal)+(folGoal>0?" / objectif "+intf(folGoal)+" ("+(folPct*100).toFixed(0)+"%)":""):"total abonnés non saisi"}</span>
+        ${folPct!=null?`<span class="bar"><i style="width:${Math.min(100,folPct*100).toFixed(0)}%;background:var(--accent)"></i></span>`:""}
+        <span class="sub" style="margin-top:6px">Visites de profil : ${intf(agg.profile_views)}</span></div></div>
+      <div class="tile b8"><h3>Analyse par format</h3><div id="fmtTable"></div></div>
+      <div class="tile b12"><h3>🏆 Les awards</h3><div id="awards"></div></div>
+      <div class="tile b12"><h3>Détail par campagne</h3><div id="campTable"></div></div>
+      <div class="tile b6"><h3>Top contenus — hook rate (≥ 1 000 impr.)</h3><div id="topTable"></div></div>
+      <div class="tile b6"><h3>Par plateforme</h3><div id="platTable"></div></div>
+    </div>`;
+
+  const series=monthlySeries(rows);
+  const gridc="#eceff4", tickc="#737f96";
+  charts.push(new Chart($("chRates"),{type:"line",
+    data:{labels:MONTHS,datasets:[
+      {label:"Hook rate",data:series.map(s=>s.hook_rate!==null?+(s.hook_rate*100).toFixed(2):null),borderColor:"#3b5bfd",backgroundColor:"#3b5bfd1f",tension:.35,spanGaps:true,fill:true},
+      {label:"Hold rate",data:series.map(s=>s.hold_rate!==null?+(s.hold_rate*100).toFixed(2):null),borderColor:"#7c5cff",backgroundColor:"#7c5cff1f",tension:.35,spanGaps:true,fill:true},
+    ]},
+    options:{maintainAspectRatio:false,plugins:{legend:{labels:{color:tickc,boxWidth:12}}},
+      scales:{y:{ticks:{color:tickc,callback:v=>v+" %"},grid:{color:gridc}},x:{ticks:{color:tickc},grid:{color:gridc}}}}
+  }));
+  charts.push(new Chart($("chVol"),{type:"bar",
+    data:{labels:MONTHS,datasets:[
+      {label:"Impressions",data:series.map(s=>s.impressions),backgroundColor:"#3b5bfdaa",borderRadius:4,yAxisID:"y"},
+      {label:"Dépense (€)",type:"line",data:series.map(s=>s.spend),borderColor:"#16a34a",backgroundColor:"#16a34a22",tension:.35,yAxisID:"y1"},
+    ]},
+    options:{maintainAspectRatio:false,plugins:{legend:{labels:{color:tickc,boxWidth:12}}},
+      scales:{y:{position:"left",ticks:{color:tickc},grid:{color:gridc}},
+              y1:{position:"right",ticks:{color:tickc},grid:{drawOnChartArea:false}},
+              x:{ticks:{color:tickc},grid:{color:gridc}}}}
+  }));
+  // camemberts par plateforme
+  const plats=groupBy(rows,"platform");
+  const donut=(cid,wrapId,pairs)=>{
+    if(!pairs.length){ $(wrapId).innerHTML='<div class="empty" style="padding:34px 10px">Aucune donnée</div>'; return; }
+    charts.push(new Chart($(cid),{type:"doughnut",
+      data:{labels:pairs.map(p=>p.label),datasets:[{data:pairs.map(p=>p.value),backgroundColor:pairs.map(p=>p.color),borderColor:"#fff",borderWidth:2}]},
+      options:{maintainAspectRatio:false,cutout:"60%",plugins:{legend:{position:"bottom",labels:{color:tickc,boxWidth:10,font:{size:11}}}}}}));
+  };
+  donut("chDoImp","wrapDoImp",plats.filter(g=>g.impressions>0).map(g=>({label:PLATFORMS[g.platform].label,value:g.impressions,color:PLATFORMS[g.platform].color})));
+  donut("chDoSp","wrapDoSp",plats.filter(g=>g.spend>0).map(g=>({label:PLATFORMS[g.platform].label,value:g.spend,color:PLATFORMS[g.platform].color})));
+
+  renderAggTable("fmtTable", groupBy(rows,"format"), "Format", obj);
+  renderAwards("awards", rows);
+  renderAggTable("campTable", groupBy(rows,"campaign"), "Campagne", obj);
+  const tops=groupBy(rows,"creative").filter(g=>g.impressions>=1000)
+    .sort((a,b)=>(b.hook_rate||0)-(a.hook_rate||0)).slice(0,15);
+  renderAggTable("topTable", tops, "Créa", obj, true);
+  renderAggTable("platTable", plats.map(g=>({...g,name:PLATFORMS[g.platform].label})), "Plateforme", obj);
+}
+
+function renderAwards(elId, rows){
+  const cr=groupBy(rows,"creative").filter(g=>g.name && g.name!=="(non précisé)");
+  if(!cr.length){ $(elId).innerHTML='<div class="empty">Pas assez de données pour les awards.</div>'; return; }
+  const best=(arr,fn,dir)=>{ const f=arr.filter(g=>fn(g)!=null&&isFinite(fn(g))); return f.length? f.sort((a,b)=>dir*(fn(a)-fn(b)))[0]:null; };
+  const cards=[];
+  const add=(title,g,valStr)=>{ if(g) cards.push(`<div class="award"><div class="at">${title}</div>
+    <div class="an" title="${escapeHtml(g.name)}">${escapeHtml(g.name)}</div>
+    <div class="av"><span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${valStr}</div></div>`); };
+  let g;
+  if(g=best(cr.filter(x=>x.impressions>=1000),x=>x.hook_rate,-1)) add("🏆 Meilleur hook rate",g,pct(g.hook_rate));
+  if(g=best(cr,x=>(x.cpm&&x.cpm>0)?x.cpm:null,1)) add("🏆 Meilleur CPM",g,g.cpm.toFixed(2)+" €");
+  if(g=best(cr,x=>(x.cpe&&x.cpe>0)?x.cpe:null,1)) add("🏆 Meilleur CPE",g,g.cpe.toFixed(2)+" €");
+  if(g=best(cr,x=>x.likes,-1)) add("🏆 + de likes",g,intf(g.likes)+" j'aime");
+  if(g=best(cr,x=>x.comments,-1)) add("🏆 + de commentaires",g,intf(g.comments)+" comm.");
+  if(g=best(cr,x=>x.shares,-1)) add("🏆 + de partages",g,intf(g.shares)+" partages");
+  if(g=best(cr,x=>x.saves,-1)) add("🏆 + d'enregistrements",g,intf(g.saves)+" enreg.");
+  $(elId).innerHTML = cards.length? '<div class="awards">'+cards.join("")+'</div>' : '<div class="empty">Pas assez de données pour les awards.</div>';
+}
+
+function renderAggTable(elId, groups, nameLabel, obj, isTop){
+  if(!groups.length){ $(elId).innerHTML='<div class="empty">—</div>'; return; }
+  let sorted=groups.slice();
+  if(!isTop) sorted.sort((a,b)=>b.impressions-a.impressions);
+  const rowsHtml=sorted.map(g=>{
+    const o = objFor(g.platform) || obj;
+    const hc=colorFor(g.hook_rate,o?o.hook:null), hdc=colorFor(g.hold_rate,o?o.hold:null);
+    return `<tr>
+      <td class="nm" title="${escapeHtml(g.name)}"><span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${escapeHtml(g.name)}</td>
+      <td class="num">${intf(g.impressions)}</td>
+      <td class="num ${hc}">${pct(g.hook_rate)}</td>
+      <td class="num ${hdc}">${pct(g.hold_rate)}</td>
+      <td class="num">${pct(g.engagement_rate)}</td>
+      <td class="num">${g.cpm!==null?g.cpm.toFixed(2)+" €":"—"}</td>
+      <td class="num">${g.cpe!==null?g.cpe.toFixed(2)+" €":"—"}</td>
+      <td class="num">${eur(g.spend)}</td>
+    </tr>`;}).join("");
+  $(elId).innerHTML=`<div class="tscroll"><table><thead><tr>
+      <th>${nameLabel}</th><th class="num">Impressions</th>
+      <th class="num">Hook</th><th class="num">Hold</th><th class="num">Engmt</th>
+      <th class="num">CPM</th><th class="num">CPE</th><th class="num">Dépense</th>
+    </tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+}
+
+/* ---------- data tab ---------- */
+function renderData(){
+  renderHistory();
+  const box=$("dataTable");
+  const clientRows=STATE.rows.filter(r=>r.client===STATE.currentClient);
+  if(!clientRows.length){ box.innerHTML='<div class="empty">Aucune donnée importée pour '+escapeHtml(clientName())+'.</div>'; return; }
+  const recent=clientRows.slice().sort((a,b)=> (b.year-a.year)||(b.month-a.month)).slice(0,300);
+  box.innerHTML=`<p class="note">${clientRows.length} lignes pour <b>${escapeHtml(clientName())}</b> (300 plus récentes affichées).</p>
+    <div class="tscroll"><table><thead><tr><th>Plateforme</th><th>Type</th><th>Année</th><th>Mois</th><th>Campagne</th><th>Créa</th>
+    <th class="num">Impr.</th><th class="num">Hook</th><th class="num">Hold</th></tr></thead>
+    <tbody>${recent.map(r=>`<tr>
+      <td><span class="dot" style="background:${PLATFORMS[r.platform].color}"></span>${PLATFORMS[r.platform].label}</td>
+      <td><span class="tag">${(r.type||"paid")==="paid"?"Paid":"Organique"}</span></td>
+      <td>${r.year}</td><td>${MONTHS[r.month-1]}</td>
+      <td class="nm" title="${escapeHtml(r.campaign)}">${escapeHtml(r.campaign)}</td><td class="nm" title="${escapeHtml(r.creative)}">${escapeHtml(r.creative)}</td>
+      <td class="num">${intf(r.impressions)}</td><td class="num">${pct(r.hook_rate)}</td><td class="num">${pct(r.hold_rate)}</td>
+    </tr>`).join("")}</tbody></table></div>`;
+}
+$("exportJson").onclick=()=>{
+  const payload={client:clientName(), objectives:STATE.objectives[STATE.currentClient],
+    exportedAt:new Date().toISOString(), rows:STATE.rows.filter(r=>r.client===STATE.currentClient)};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="reporting-"+clientName().replace(/[^a-z0-9]+/gi,"-").toLowerCase()+"-"+new Date().toISOString().slice(0,10)+".json"; a.click();
+};
+$("importJsonBtn").onclick=()=>$("importJson").click();
+$("importJson").onchange=ev=>{
+  const f=ev.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{ try{
+      const data=JSON.parse(e.target.result);
+      const rows=Array.isArray(data)? data : (data.rows||null);
+      if(!rows){ alert("Fichier JSON invalide."); return; }
+      const h=pushHistory(`Import JSON — ${clientName()}`);
+      rows.forEach(x=>x.client=STATE.currentClient);          // rattache au client courant
+      STATE.rows=STATE.rows.filter(r=>r.client!==STATE.currentClient).concat(rows);
+      if(data.objectives){ STATE.objectives[STATE.currentClient]=data.objectives; saveObj(); }
+      saveData(); renderData(); toast(rows.length+" lignes importées pour "+clientName()+".", h);
+    }catch(err){ alert("Fichier JSON invalide."); } };
+  r.readAsText(f);
+};
+$("clearAll").onclick=()=>{ if(confirm("Effacer toutes les données de "+clientName()+" ?")){
+  const h=pushHistory(`Effacement des données — ${clientName()}`);
+  STATE.rows=STATE.rows.filter(r=>r.client!==STATE.currentClient); saveData(); renderData();
+  toast("Données effacées pour "+clientName()+".", h); } };
+
+/* ---------- settings (objectifs par client) ---------- */
+function renderSettings(){
+  $("objClientName").textContent=clientName();
+  const keys=["global","instagram","facebook","tiktok","linkedin","youtube"];
+  const labelFor=k=> k==="global"? "🌐 Global (toutes plateformes)" : `<span class="dot" style="background:${PLATFORMS[k].color}"></span>${PLATFORMS[k].label}`;
+  $("objBody").innerHTML=keys.map(p=>{
+    const o=objFor(p); const isGlobal=p==="global";
+    const folTotal=isGlobal?'<span class="sub" style="color:var(--muted)">—</span>':`<input type="number" step="100" data-p="${p}" data-k="followers_total" value="${o.followers_total||0}" style="width:110px">`;
+    const folGoal =isGlobal?'<span class="sub" style="color:var(--muted)">—</span>':`<input type="number" step="100" data-p="${p}" data-k="followers_goal" value="${o.followers_goal||0}" style="width:110px">`;
+    return `<tr><td>${labelFor(p)}</td>
+      <td class="num"><input type="number" step="0.1" data-p="${p}" data-k="engagement" value="${(o.engagement*100).toFixed(1)}" style="width:72px"></td>
+      <td class="num"><input type="number" step="100000" data-p="${p}" data-k="impressions" value="${o.impressions||0}" style="width:120px"></td>
+      <td class="num"><input type="number" step="1" data-p="${p}" data-k="hook" value="${(o.hook*100).toFixed(0)}" style="width:64px"></td>
+      <td class="num"><input type="number" step="1" data-p="${p}" data-k="hold" value="${(o.hold*100).toFixed(0)}" style="width:64px"></td>
+      <td class="num"><input type="number" step="100" data-p="${p}" data-k="media_budget" value="${o.media_budget||0}" style="width:100px"></td>
+      <td class="num">${folTotal}</td>
+      <td class="num">${folGoal}</td>
+    </tr>`;}).join("");
+}
+$("saveObj").onclick=()=>{
+  $("objBody").querySelectorAll("input").forEach(i=>{
+    const v=Math.max(0,Number(i.value)||0), k=i.dataset.k;
+    objFor(i.dataset.p)[k] = (k==="engagement"||k==="hook"||k==="hold") ? v/100 : v;
+  });
+  saveObj(); toast("Objectifs enregistrés pour "+clientName()+".");
+};
+
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+/* ---------- import groupé (une page) ---------- */
+let batchStaging = {};   // "platform|type" -> {rows, fileName, mapping, status}
+
+function isTextFile(name){ return /\.(csv|tsv|txt)$/i.test(name||""); }
+function workbookFromReaderResult(result, isText){
+  return isText ? XLSX.read(result,{type:"string"}) : XLSX.read(result,{type:"array"});
+}
+function readWorkbookRows(file){
+  return new Promise((resolve,reject)=>{
+    const isText=isTextFile(file.name);
+    const reader=new FileReader();
+    reader.onload=e=>{ try{
+        const wb=workbookFromReaderResult(e.target.result, isText);
+        resolve(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""}));
+      }catch(err){ reject(err); } };
+    reader.onerror=()=>reject(new Error("lecture impossible"));
+    if(isText) reader.readAsText(file,"UTF-8"); else reader.readAsArrayBuffer(file);
+  });
+}
+function stId(key){ return "st_"+key.replace("|","_"); }
+
+function renderBatch(){
+  const bc=$("batchClientSelect"); if(bc) bc.value=STATE.currentClient;
+  const grid=$("batchGrid"); grid.innerHTML="";
+  Object.keys(PLATFORMS).forEach(p=>{
+    ["paid","organic"].forEach(t=>{
+      const key=p+"|"+t, g=(EXPORT_GUIDE[p]||{})[t]||{}, tl=t==="paid"?"Paid":"Organique";
+      const staged=batchStaging[key];
+      const div=document.createElement("div"); div.className="slot";
+      div.innerHTML=`
+        <div class="slot-head"><span class="dot" style="background:${PLATFORMS[p].color}"></span>${PLATFORMS[p].label} · ${tl}
+          ${g.url?`<a href="${g.url}" target="_blank" rel="noopener">↗ ${g.site}</a>`:""}</div>
+        <div class="slotdrop ${staged?'filled':''}" data-key="${key}" data-p="${p}" data-t="${t}">
+          ${staged? '✓ '+escapeHtml(staged.fileName) : 'Déposer ou cliquer'}</div>
+        <div class="slotstatus" id="${stId(key)}">${staged?staged.status:''}</div>`;
+      grid.appendChild(div);
+    });
+  });
+  grid.querySelectorAll(".slotdrop").forEach(dz=>{
+    dz.onclick=()=>{ const inp=document.createElement("input"); inp.type="file"; inp.accept=".csv,.xlsx,.xls";
+      inp.onchange=e=>{ if(e.target.files[0]) batchHandle(dz,e.target.files[0]); }; inp.click(); };
+    ["dragover","dragenter"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add("hover");}));
+    ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove("hover");}));
+    dz.addEventListener("drop",e=>{ if(e.dataTransfer.files[0]) batchHandle(dz,e.dataTransfer.files[0]); });
+  });
+}
+
+async function batchHandle(dz,file){
+  const p=dz.dataset.p, t=dz.dataset.t, key=dz.dataset.key;
+  const statusEl=$(stId(key)); statusEl.innerHTML="lecture…";
+  let raws;
+  try{ raws=await readWorkbookRows(file); }catch(e){ statusEl.innerHTML="<span class='bad'>illisible</span>"; return; }
+  if(!raws.length){ statusEl.innerHTML="<span class='bad'>fichier vide</span>"; return; }
+  const headers=Object.keys(raws[0]);
+  const mapping=mergeMapping(headers, p, STATE.mappings[key]);
+  const norm=normalizeRows(raws,mapping,p,t,$("batchYear").value,$("batchMonth").value);
+  const agg=aggregate(norm);
+  let status;
+  if(!mapping.impressions) status=`<span class="bad">⚠ colonne « impressions / vues » introuvable — vérifie l'export</span>`;
+  else if(norm.length===0) status=`<span class="bad">⚠ 0 ligne exploitable (export vide sur la période ?)</span>`;
+  else status=`<span class="good">✓ ${norm.length} lignes</span> · hook ${pct(agg.hook_rate)} · eng ${pct(agg.engagement_rate)} · ${intf(agg.impressions)} impr.`;
+  batchStaging[key]={rows:norm,fileName:file.name,mapping,status};
+  dz.classList.add("filled"); dz.innerHTML="✓ "+escapeHtml(file.name);
+  statusEl.innerHTML=status;
+}
+
+$("batchAnalyze").onclick=()=>{
+  const keys=Object.keys(batchStaging);
+  if(!keys.length){ alert("Dépose au moins un fichier."); return; }
+  let all=[];
+  keys.forEach(k=>{ batchStaging[k].rows.forEach(r=>r.client=STATE.currentClient);
+    all=all.concat(batchStaging[k].rows); STATE.mappings[k]=batchStaging[k].mapping; });
+  const h=pushHistory(`Import groupé — ${all.length} lignes (${clientName()})`);
+  STATE.rows=STATE.rows.concat(all); saveData(); saveMap();
+  const year=Number($("batchYear").value);
+  const rows=STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===year);
+  const n=all.length;
+  batchStaging={}; renderBatch();
+  renderInlineAnalysis(rows, year, n);
+  toast(`${n} lignes ajoutées pour ${clientName()}.`, h);
+  if($("batchResult").scrollIntoView) $("batchResult").scrollIntoView({behavior:"smooth",block:"start"});
+};
+$("batchClear").onclick=()=>{ batchStaging={}; $("batchResult").innerHTML=""; renderBatch(); };
+
+function renderInlineAnalysis(rows, year, added){
+  const box=$("batchResult");
+  if(!rows.length){ box.innerHTML=""; return; }
+  const agg=aggregate(rows), obj=objFor("global");
+  const imprPct=obj.impressions>0? agg.impressions/obj.impressions:null;
+  const groups=groupBy(rows,"platform").sort((a,b)=>b.impressions-a.impressions);
+  const rowsHtml=groups.map(g=>`<tr>
+     <td><span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${PLATFORMS[g.platform].label}</td>
+     <td class="num">${intf(g.impressions)}</td><td class="num">${pct(g.hook_rate)}</td><td class="num">${pct(g.hold_rate)}</td>
+     <td class="num">${pct(g.engagement_rate)}</td><td class="num">${g.cpm!==null?g.cpm.toFixed(2)+' €':'—'}</td><td class="num">${eur(g.spend)}</td>
+   </tr>`).join("");
+  box.innerHTML=`
+   <div class="card">
+     <div class="flex-between"><h2 style="margin:0">Analyse — ${escapeHtml(clientName())} · ${year}</h2>
+       <span class="tag">${added!=null?added+" lignes ajoutées":""}</span></div>
+     <div class="kpis" style="margin-top:14px">
+       <div class="kpi"><div class="l">Engagement</div><div class="v ${colorFor(agg.engagement_rate,obj.engagement)}">${pct(agg.engagement_rate)}</div><div class="l">obj ${pct(obj.engagement)}</div></div>
+       <div class="kpi"><div class="l">Impressions</div><div class="v">${intf(agg.impressions)}</div><div class="l">${obj.impressions>0?(imprPct*100).toFixed(1)+"% de l'objectif":"objectif non défini"}</div></div>
+       <div class="kpi"><div class="l">Hook rate</div><div class="v ${colorFor(agg.hook_rate,obj.hook)}">${pct(agg.hook_rate)}</div><div class="l">obj ${pct(obj.hook)}</div></div>
+       <div class="kpi"><div class="l">Hold rate</div><div class="v ${colorFor(agg.hold_rate,obj.hold)}">${pct(agg.hold_rate)}</div><div class="l">obj ${pct(obj.hold)}</div></div>
+       <div class="kpi"><div class="l">Dépense média</div><div class="v">${eur(agg.spend)}</div></div>
+       <div class="kpi"><div class="l">CPM</div><div class="v">${agg.cpm!==null?agg.cpm.toFixed(2)+" €":"—"}</div></div>
+     </div>
+     <h2 style="margin-top:18px">Par plateforme</h2>
+     <table><thead><tr><th>Plateforme</th><th class="num">Impressions</th><th class="num">Hook</th><th class="num">Hold</th><th class="num">Engmt</th><th class="num">CPM</th><th class="num">Dépense</th></tr></thead>
+     <tbody>${rowsHtml}</tbody></table>
+     <p class="note" style="margin-top:12px">Reporting détaillé (courbes mensuelles, par campagne, top contenus, awards) dans l'onglet <b>Reporting</b>.</p>
+   </div>`;
+}
+
+/* ---------- init ---------- */
+load(); renderClientSelect(); fillYearMonth(); renderExportHelp(); renderHistory();
+activateTab(location.hash.slice(1)||"batch");   // ouvre l'onglet indiqué dans l'URL
+</script>
+</body>
+</html>
