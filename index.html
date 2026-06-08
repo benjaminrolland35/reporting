@@ -57,6 +57,22 @@ main{padding:24px;max-width:1280px;margin:0 auto}
   .chart-md,.chart-sm{height:240px}
 }
 @media(max-width:380px){ .b3{grid-column:span 12} }
+/* ---- impression du bilan ---- */
+#printArea{display:none}
+#printArea h1{font-size:24px;margin:0 0 4px} #printArea h2{font-size:16px;margin:22px 0 8px;border-bottom:2px solid var(--accent);padding-bottom:4px}
+#printArea .pcover{padding:40px 0 10px} #printArea .psub{color:#555}
+#printArea .pk{display:inline-block;border:1px solid #ddd;border-radius:8px;padding:10px 14px;margin:4px 6px 4px 0;min-width:150px}
+#printArea .pk b{font-size:20px;display:block} #printArea .pk small{color:#666}
+#printArea table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+#printArea th,#printArea td{border:1px solid #e3e3e3;padding:6px 8px;text-align:left} #printArea th{background:#f5f5f7}
+#printArea td.num,#printArea th.num{text-align:right}
+#printArea .pnote{white-space:pre-wrap;border:1px solid #eee;border-radius:8px;padding:10px;margin:6px 0}
+@media print{
+  body{background:#fff}
+  body>header,body>main,#toast,#gate{display:none !important}
+  #printArea{display:block;color:#111;padding:0 6px}
+  .pbreak{page-break-before:always}
+}
 .metric{display:flex;flex-direction:column;gap:2px}
 .metric .lbl{color:var(--muted);font-size:12px;font-weight:500}
 .metric .val{font-size:28px;font-weight:700;letter-spacing:-.02em}
@@ -70,6 +86,11 @@ main{padding:24px;max-width:1280px;margin:0 auto}
 .award .at{font-size:11px;color:var(--muted);font-weight:600}
 .award .an{font-size:13px;font-weight:600;margin:5px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .award .av{font-size:13px;display:flex;align-items:center}
+.notes-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.notes-grid label{display:block;margin-bottom:6px;font-weight:600}
+.notes-grid textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+  color:var(--txt);padding:10px;font:inherit;font-size:13px;resize:vertical;min-height:90px}
+@media(max-width:680px){.notes-grid{grid-template-columns:1fr}}
 .row{display:flex;gap:14px;flex-wrap:wrap}
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
 label{color:var(--muted);font-size:12px;font-weight:500}
@@ -130,8 +151,9 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </head>
 <body>
 <header>
+  <img id="brandLogoImg" alt="" style="height:34px;width:auto;border-radius:6px;display:none">
   <div>
-    <h1>📊 Reporting Social Annuel</h1>
+    <h1 id="appTitle">📊 Reporting Social Annuel</h1>
     <div class="sub">Instagram · Facebook · TikTok · LinkedIn · YouTube</div>
   </div>
   <div class="clientbar">
@@ -167,6 +189,10 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         <div class="field"><label>Mois (si l'export n'a pas de date)</label><select id="batchMonth"></select></div>
       </div>
       <p class="note">Choisis le <b>client</b> et l'<b>année</b>, dépose chaque export dans sa case (le lien ↗ ouvre l'outil), puis clique « Analyser » — l'analyse s'affiche juste en dessous.</p>
+      <div id="batchMultiDrop" class="drop" style="margin-bottom:14px;padding:18px">
+        ⚡ Glisse ici <b>plusieurs fichiers d'un coup</b> — la plateforme et le type (paid/organique) sont détectés automatiquement.
+        <input type="file" id="batchMultiInput" accept=".csv,.xlsx,.xls" multiple style="display:none">
+      </div>
       <div id="batchGrid" class="batch-grid"></div>
       <div style="margin-top:16px" class="row">
         <button class="btn" id="batchAnalyze">Ajouter au reporting &amp; analyser</button>
@@ -249,7 +275,7 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
             <option value="organic">Organique uniquement</option>
           </select>
         </div>
-        <div class="field"><label>&nbsp;</label>
+        <div class="field"><label>Période rapide</label>
           <div class="row" style="margin:0;gap:6px">
             <button class="btn sec" data-preset="year">Année</button>
             <button class="btn sec" data-preset="q1">T1</button>
@@ -258,6 +284,7 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
             <button class="btn sec" data-preset="q4">T4</button>
           </div>
         </div>
+        <div class="field"><label>&nbsp;</label><button class="btn" id="exportBilan">🖨 Exporter le bilan (PDF)</button></div>
       </div>
     </div>
     <div id="dashContent"></div>
@@ -288,6 +315,17 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   <!-- ================= SETTINGS ================= -->
   <section id="settings" class="tab">
     <div class="card">
+      <h2>Charte agence &amp; accès</h2>
+      <div class="row" style="align-items:flex-end">
+        <div class="field"><label>Nom agence</label><input type="text" id="brandName" placeholder="Tire-Fesses"></div>
+        <div class="field"><label>Couleur principale</label><input type="color" id="brandColor" value="#3b5bfd" style="min-width:60px;width:60px;padding:4px;height:38px"></div>
+        <div class="field"><label>Logo (image)</label><input type="file" id="brandLogo" accept="image/*"></div>
+        <div class="field"><label>Code d'accès (optionnel)</label><input type="text" id="brandPass" placeholder="vide = pas de code"></div>
+        <div class="field"><label>&nbsp;</label><button class="btn" id="saveBrand">Enregistrer la charte</button></div>
+      </div>
+      <p class="note">⚠ Le code d'accès est une protection <b>légère</b> (site public) : il dissuade, mais n'empêche pas un utilisateur averti d'accéder aux données. Pour une vraie confidentialité, héberge le site en privé.</p>
+    </div>
+    <div class="card">
       <h2>Objectifs annuels — <span id="objClientName"></span></h2>
       <p class="note">Objectifs propres à ce client. %= Engagement/Hook/Hold ; Impressions & Budget média = totaux annuels visés ; Abonnés = total actuel et objectif (par plateforme).</p>
       <div style="overflow-x:auto"><table><thead><tr><th>Plateforme</th><th class="num">Engagement %</th><th class="num">Impressions</th><th class="num">Hook %</th><th class="num">Hold %</th><th class="num">Budget média €</th><th class="num">Abonnés actuels</th><th class="num">Objectif abonnés</th></tr></thead>
@@ -298,6 +336,16 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </main>
 
 <div id="toast" class="toast"></div>
+<div id="printArea"></div>
+<div id="gate" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:100;align-items:center;justify-content:center">
+  <div class="card" style="max-width:340px;text-align:center">
+    <h2>🔒 Accès protégé</h2>
+    <p class="note">Entre le code d'accès pour ouvrir le reporting.</p>
+    <input type="password" id="gateInput" placeholder="Code d'accès" style="width:100%;margin-bottom:10px">
+    <button class="btn" id="gateBtn" style="width:100%">Entrer</button>
+    <p class="note" id="gateErr" style="color:var(--red);min-height:16px"></p>
+  </div>
+</div>
 
 <script>
 /* ============================================================
@@ -334,6 +382,11 @@ const FIELDS = [
   {key:"hook_views", label:"Vues hook (vidéo)",    req:false},
   {key:"hold_views", label:"Vues hold (vidéo)",    req:false},
   {key:"completions",label:"Complétions (100%)",  req:false},
+  {key:"watch_time", label:"Durée de lecture moy. (s)", req:false},
+  {key:"hook_rate_in", label:"Hook rate (déjà calculé %)", req:false},
+  {key:"hold_rate_in", label:"Hold rate (déjà calculé %)", req:false},
+  {key:"eng_in",       label:"Engagement (déjà calculé %)", req:false},
+  {key:"cpe_in",       label:"CPE (déjà calculé €)", req:false},
 ];
 
 // Aliases par plateforme (FR + EN), comparés en minuscule sans accents
@@ -351,9 +404,14 @@ const META_ALIASES = {
   saves:["enregistrements","saved","saves"],
   followers:["followers en plus","nouveaux abonnes","abonnes nets","net followers","new followers","follows"],
   profile_views:["visites du profil","profile views","visites de profil"],
-  hook_views:["3-second video plays","lectures de video de 3 secondes","video plays","lectures de video"],
+  hook_views:["3-second video plays","lectures de video de 3 secondes"],
   hold_views:["thruplays"],
-  completions:["video plays at 100","lectures de video a 100"],
+  completions:["lectures de video a 100","video plays at 100"],
+  watch_time:["duree de lecture moyenne de la video","temps de lecture moyen","duree de lecture moyenne","temps de visionnage moyen","average watch time","avg watch time"],
+  hook_rate_in:["taux de lecture de videos de 3 secondes par impressions","hook rate","taux d'accroche"],
+  hold_rate_in:["hold rate","taux de retention"],
+  eng_in:["taux d'engagement","engagement rate"],
+  cpe_in:["cpe","cout par engagement"],
 };
 const ALIASES = {
   instagram: META_ALIASES,
@@ -375,6 +433,7 @@ const ALIASES = {
     hook_views:["2-second video views","video views 2s","2 second video views","vues video 2 secondes"],
     hold_views:["6-second video views","video views 6s","6 second video views","vues video 6 secondes"],
     completions:["video views at 100","completed video views","p100"],
+    watch_time:["average watch time","temps moyen de visionnage","duree moyenne de visionnage","average time watched","temps de visionnage moyen"],
   },
   linkedin:{
     campaign:["campaign name","campaign","nom de la campagne"],
@@ -471,6 +530,18 @@ function toNumber(v){
   const n=parseFloat(s);
   return isFinite(n)?n:0;
 }
+// "HH:MM:SS" / "MM:SS" -> secondes ; sinon nombre
+function parseDuration(v){
+  if(v===null||v===undefined||v==="") return 0;
+  const s=String(v).trim();
+  if(s.includes(":")){ const p=s.split(":").map(x=>parseInt(x,10)||0);
+    return p.length===3? p[0]*3600+p[1]*60+p[2] : p.length===2? p[0]*60+p[1] : 0; }
+  return toNumber(v);
+}
+function weightedAvg(rows, key){
+  let s=0,w=0; for(const r of rows){ if(r[key]!=null && isFinite(r[key])){ const im=r.impressions||1; s+=r[key]*im; w+=im; } }
+  return w>0? s/w : null;
+}
 
 function parseMonth(dateStr, fallbackMonth){
   if(dateStr===""||dateStr===null||dateStr===undefined) return fallbackMonth;
@@ -533,8 +604,13 @@ function computeRates(platform, r){
   }
   // métriques média / engagement (lexique B&B : CPM = €/1000 impressions, CPE = €/engagement)
   const cpm = imp? safeDiv(r.spend*1000, imp) : null;
-  const cpe = r.interactions? safeDiv(r.spend, r.interactions) : null;
-  const engagement_rate = safeDiv(r.interactions, imp);
+  let cpe = r.interactions? safeDiv(r.spend, r.interactions) : null;
+  let engagement_rate = safeDiv(r.interactions, imp);
+  // priorité aux valeurs déjà calculées dans l'export
+  if(r._hookIn!=null) hook_rate=r._hookIn;
+  if(r._holdIn!=null) hold_rate=r._holdIn;
+  if(r._engIn!=null) engagement_rate=r._engIn;
+  if(r._cpeIn!=null) cpe=r._cpeIn;
   return {hook_rate, hold_rate, completion_rate, cpm, cpe, engagement_rate};
 }
 
@@ -560,11 +636,17 @@ function normalizeRows(rawRows, mapping, platform, type, year, fallbackMonth){
       hook_views: toNumber(get("hook_views")),
       hold_views: toNumber(get("hold_views")),
       completions: toNumber(get("completions")),
+      watch_time: parseDuration(get("watch_time")),
     };
     rec.format = detectFormat(rec.creative+" "+rec.campaign);
     // interactions = colonne explicite si présente, sinon somme (j'aime + comm. + partages + enreg.)
     const explicitInter=toNumber(get("interactions"));
     rec.interactions = explicitInter>0 ? explicitInter : (rec.likes+rec.comments+rec.shares+rec.saves);
+    // métriques déjà calculées dans l'export (%) -> prioritaires
+    // taux déjà calculé : >1 => exprimé en % (÷100), ≤1 => déjà une fraction
+    const pctIn=k=>{ const v=get(k); if(v===undefined||String(v).trim()==="") return null; const n=toNumber(v); return Math.abs(n)>1? n/100 : n; };
+    rec._hookIn=pctIn("hook_rate_in"); rec._holdIn=pctIn("hold_rate_in"); rec._engIn=pctIn("eng_in");
+    const cpeV=get("cpe_in"); rec._cpeIn=(cpeV!==undefined&&String(cpeV).trim()!=="")? toNumber(cpeV):null;
     // ignore lignes totalement vides (sommes/totaux)
     if(rec.impressions===0 && rec.hook_views===0 && rec.spend===0 && rec.interactions===0) continue;
     Object.assign(rec, computeRates(platform, rec));
@@ -578,18 +660,24 @@ function normalizeRows(rawRows, mapping, platform, type, year, fallbackMonth){
 function aggregate(rows){
   const a={impressions:0,reach:0,spend:0,interactions:0,hook_views:0,hold_views:0,completions:0,
     followers:0,profile_views:0,likes:0,comments:0,shares:0,saves:0,count:rows.length};
+  let wtSum=0, wtImpr=0;
   for(const r of rows){
     a.impressions+=r.impressions; a.reach+=r.reach; a.spend+=r.spend; a.interactions+=(r.interactions||0);
     a.hook_views+=r.hook_views; a.hold_views+=r.hold_views; a.completions+=r.completions;
     a.followers+=(r.followers||0); a.profile_views+=(r.profile_views||0);
     a.likes+=(r.likes||0); a.comments+=(r.comments||0); a.shares+=(r.shares||0); a.saves+=(r.saves||0);
+    if(r.watch_time>0){ wtSum+=r.watch_time*(r.impressions||1); wtImpr+=(r.impressions||1); }
   }
-  a.hook_rate=a.hook_views>0? safeDiv(a.hook_views,a.impressions):null;
-  a.hold_rate=safeDiv(a.hold_views||a.completions,a.hook_views);
+  a.watch_time = wtImpr>0 ? wtSum/wtImpr : null;   // durée moy. pondérée par impressions
+  // si l'export fournit des taux déjà calculés -> moyenne pondérée par impressions ; sinon calcul depuis le brut
+  const anyHookIn=rows.some(r=>r._hookIn!=null), anyHoldIn=rows.some(r=>r._holdIn!=null),
+        anyEngIn=rows.some(r=>r._engIn!=null), anyCpeIn=rows.some(r=>r._cpeIn!=null);
+  a.hook_rate = anyHookIn ? weightedAvg(rows,"hook_rate") : (a.hook_views>0? safeDiv(a.hook_views,a.impressions):null);
+  a.hold_rate = anyHoldIn ? weightedAvg(rows,"hold_rate") : (a.hook_views>0? safeDiv(a.hold_views||a.completions,a.hook_views):null);
   a.completion_rate=safeDiv(a.completions,a.hook_views);
-  a.engagement_rate=safeDiv(a.interactions,a.impressions);
+  a.engagement_rate = anyEngIn ? weightedAvg(rows,"engagement_rate") : safeDiv(a.interactions,a.impressions);
   a.cpm=a.impressions? safeDiv(a.spend*1000,a.impressions):null;
-  a.cpe=a.interactions? safeDiv(a.spend,a.interactions):null;
+  a.cpe = anyCpeIn ? weightedAvg(rows,"cpe") : (a.interactions>0? safeDiv(a.spend,a.interactions):null);
   return a;
 }
 
@@ -622,10 +710,11 @@ if(typeof module!=="undefined" && module.exports){
    ===================== UI / DOM / STATE =====================
    ============================================================ */
 const LS_DATA="rsa_data_v2", LS_OBJ="rsa_obj_v2", LS_MAP="rsa_map_v1",
-      LS_CLIENTS="rsa_clients_v1", LS_CUR="rsa_curclient_v1", LS_HIST="rsa_hist_v1";
+      LS_CLIENTS="rsa_clients_v1", LS_CUR="rsa_curclient_v1", LS_HIST="rsa_hist_v1",
+      LS_NOTES="rsa_notes_v1", LS_BRAND="rsa_brand_v1";
 // STATE.objectives = { [clientId]: {global,instagram,...} }
 // chaque ligne de STATE.rows possède un champ .client (id)
-let STATE = { rows:[], objectives:{}, mappings:{}, clients:[], currentClient:null, history:[] };
+let STATE = { rows:[], objectives:{}, mappings:{}, clients:[], currentClient:null, history:[], notes:{}, brand:{} };
 let pending = null;
 let charts = [];
 
@@ -637,6 +726,8 @@ function load(){
   try{ STATE.mappings=JSON.parse(localStorage.getItem(LS_MAP))||{}; }catch(e){ STATE.mappings={}; }
   try{ STATE.clients=JSON.parse(localStorage.getItem(LS_CLIENTS))||[]; }catch(e){ STATE.clients=[]; }
   try{ STATE.history=JSON.parse(localStorage.getItem(LS_HIST))||[]; }catch(e){ STATE.history=[]; }
+  try{ STATE.notes=JSON.parse(localStorage.getItem(LS_NOTES))||{}; }catch(e){ STATE.notes={}; }
+  try{ STATE.brand=JSON.parse(localStorage.getItem(LS_BRAND))||{}; }catch(e){ STATE.brand={}; }
   STATE.currentClient=localStorage.getItem(LS_CUR)||null;
   if(!STATE.clients.length){ const id=uid(); STATE.clients=[{id,name:"Mon premier client"}]; STATE.currentClient=id; saveClients(); }
   if(!STATE.clients.find(c=>c.id===STATE.currentClient)) STATE.currentClient=STATE.clients[0].id;
@@ -656,6 +747,9 @@ function saveData(){ localStorage.setItem(LS_DATA, JSON.stringify(STATE.rows)); 
 function saveObj(){ localStorage.setItem(LS_OBJ, JSON.stringify(STATE.objectives)); }
 function saveMap(){ localStorage.setItem(LS_MAP, JSON.stringify(STATE.mappings)); }
 function saveClients(){ localStorage.setItem(LS_CLIENTS, JSON.stringify(STATE.clients)); localStorage.setItem(LS_CUR, STATE.currentClient); }
+function saveNotes(){ localStorage.setItem(LS_NOTES, JSON.stringify(STATE.notes)); }
+function saveBrand(){ localStorage.setItem(LS_BRAND, JSON.stringify(STATE.brand)); }
+function notesFor(){ if(!STATE.notes[STATE.currentClient]) STATE.notes[STATE.currentClient]={works:"",watch:"",reco:""}; return STATE.notes[STATE.currentClient]; }
 function saveHist(){
   try{ localStorage.setItem(LS_HIST, JSON.stringify(STATE.history)); }
   catch(e){ STATE.history=STATE.history.slice(0,5); try{ localStorage.setItem(LS_HIST, JSON.stringify(STATE.history)); }catch(_){} }
@@ -869,6 +963,26 @@ drop.onclick=()=>$("fileInput").click();
 drop.addEventListener("drop",ev=>{ if(ev.dataTransfer.files[0]) readFile(ev.dataTransfer.files[0]); });
 $("fileInput").onchange=ev=>{ if(ev.target.files[0]) readFile(ev.target.files[0]); };
 
+// Supprime les lignes existantes du client courant correspondant aux mêmes
+// (plateforme, type, année, mois) que les nouvelles lignes -> évite les doublons.
+function replacePeriods(newRows){
+  const key=r=>r.platform+"|"+(r.type||"paid")+"|"+r.year+"|"+r.month;
+  const keys=new Set(newRows.map(key));
+  const before=STATE.rows.length;
+  STATE.rows=STATE.rows.filter(r=> r.client!==STATE.currentClient || !keys.has(key(r)));
+  return before-STATE.rows.length;
+}
+// Devine la plateforme à partir des en-têtes
+function guessPlatform(headers){
+  const h=headers.map(normalizeHeader);
+  const has=s=>h.some(x=>x.includes(s));
+  if(has("thruplays")||has("lectures de video")) return "facebook"; // Meta : on ne sait pas IG vs FB
+  if(has("video views")&&(has("profile views")||has("video views at 100"))) return "tiktok";
+  if(has("2-second")||has("6-second")) return "tiktok";
+  if(has("creative name")||has("total spent")) return "linkedin";
+  if(has("video played to 100")) return "youtube";
+  return null;
+}
 // Fusionne auto-détection + corrections sauvegardées (en ignorant les entrées
 // vides ou pointant vers une colonne absente -> auto-réparation des vieux mappings).
 function mergeMapping(headers, platform, saved){
@@ -887,7 +1001,9 @@ function readFile(file){
     const rows=XLSX.utils.sheet_to_json(sheet,{defval:""});
     if(!rows.length){ $("impInfo").innerHTML="<span class='bad'>Aucune ligne détectée.</span>"; return; }
     const headers=Object.keys(rows[0]);
-    const platform=$("impPlatform").value;
+    let platform=$("impPlatform").value;
+    const guessed=guessPlatform(headers);
+    if(guessed && guessed!==platform){ platform=guessed; $("impPlatform").value=guessed; renderExportHelp(); }
     const mapping=mergeMapping(headers, platform, STATE.mappings[platform+"|"+$("impType").value]);
     pending={platform, type:$("impType").value, year:$("impYear").value, month:$("impMonth").value, headers, rawRows:rows, mapping};
     $("impInfo").innerHTML=`Fichier <b>${file.name}</b> — ${rows.length} lignes, ${headers.length} colonnes détectées.`;
@@ -930,11 +1046,12 @@ $("addBtn").onclick=()=>{
   norm.forEach(r=>r.client=STATE.currentClient);
   const tl=pending.type==="paid"?"Paid":"Organique";
   const h=pushHistory(`Import simple — ${norm.length} lignes (${PLATFORMS[pending.platform].label} ${tl}, ${clientName()})`);
+  const removed=replacePeriods(norm);
   STATE.rows=STATE.rows.concat(norm); saveData();
   STATE.mappings[pending.platform+"|"+pending.type]=pending.mapping; saveMap();
   $("mapCard").style.display="none";
-  $("impInfo").innerHTML=`<span class="good">✓ ${norm.length} lignes ajoutées (${PLATFORMS[pending.platform].label} · ${tl} · ${pending.year}).</span>`;
-  toast(`${norm.length} lignes ajoutées.`, h);
+  $("impInfo").innerHTML=`<span class="good">✓ ${norm.length} lignes ajoutées (${PLATFORMS[pending.platform].label} · ${tl} · ${pending.year})${removed?` — ${removed} remplacées`:""}.</span>`;
+  toast(`${norm.length} lignes ajoutées${removed?` (${removed} remplacées)`:""}.`, h);
   pending=null;
 };
 
@@ -985,6 +1102,18 @@ function renderDashboard(){
   const folGoal  = platform==="all"? sumObj("followers_goal")  : obj.followers_goal;
   const folPct   = folGoal>0? folTotal/folGoal : null;
 
+  // période précédente (même durée, juste avant) pour les variations
+  let pf0=Number($("fltFrom").value), pt0=Number($("fltTo").value); if(pf0>pt0){const t=pf0;pf0=pt0;pt0=t;}
+  const L=pt0-pf0+1; let aggPrev=null;
+  if(pf0-1>=1){ const pf=Math.max(1,pf0-L), pt=pf0-1;
+    const prevRows=STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===yr && r.month>=pf && r.month<=pt
+      && (platform==="all"||r.platform===platform) && (tflt==="all"||(r.type||"paid")===tflt));
+    if(prevRows.length) aggPrev=aggregate(prevRows);
+  }
+  const dl=(cur,prev,rate)=>{ if(aggPrev==null||cur==null||prev==null||prev===0||!isFinite(cur)) return "";
+    const diff=rate?(cur-prev):(cur-prev)/prev, up=diff>=0;
+    return ` · <span class="${up?'good':'bad'}">${up?'▲':'▼'} ${rate?((up?'+':'')+(diff*100).toFixed(1)+' pts'):((up?'+':'')+(diff*100).toFixed(0)+'%')}</span>`; };
+
   // tuiles métriques (bento) vs objectifs du client
   const imprPct = obj.impressions>0 ? aggCum.impressions/obj.impressions : null;
   const C={good:"var(--green)",warn:"var(--amber)",bad:"var(--red)","":"var(--accent)"};
@@ -999,10 +1128,10 @@ function renderDashboard(){
       <div class="tile b12" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
         <div style="font-size:15px"><b>${escapeHtml(clientName())}</b> · ${platLbl}</div>
         <div style="color:var(--muted)">${periodLbl}</div></div>
-      ${mTile("b3","Engagement",pct(agg.engagement_rate),"objectif "+pct(obj.engagement),colorFor(agg.engagement_rate,obj.engagement),obj.engagement?agg.engagement_rate/obj.engagement:null)}
-      ${mTile("b3","Hook rate",pct(agg.hook_rate),"objectif "+pct(obj.hook),colorFor(agg.hook_rate,obj.hook),(obj.hook&&agg.hook_rate!=null)?agg.hook_rate/obj.hook:null)}
-      ${mTile("b3","Hold rate",pct(agg.hold_rate),"objectif "+pct(obj.hold),colorFor(agg.hold_rate,obj.hold),(obj.hold&&agg.hold_rate!=null)?agg.hold_rate/obj.hold:null)}
-      ${mTile("b3","Impressions (période)",intf(agg.impressions),"cumul année : "+intf(aggCum.impressions),"",null)}
+      ${mTile("b3","Engagement",pct(agg.engagement_rate),"objectif "+pct(obj.engagement)+dl(agg.engagement_rate,aggPrev&&aggPrev.engagement_rate,true),colorFor(agg.engagement_rate,obj.engagement),obj.engagement?agg.engagement_rate/obj.engagement:null)}
+      ${mTile("b3","Hook rate",pct(agg.hook_rate),"objectif "+pct(obj.hook)+dl(agg.hook_rate,aggPrev&&aggPrev.hook_rate,true),colorFor(agg.hook_rate,obj.hook),(obj.hook&&agg.hook_rate!=null)?agg.hook_rate/obj.hook:null)}
+      ${mTile("b3","Hold rate",pct(agg.hold_rate),"objectif "+pct(obj.hold)+dl(agg.hold_rate,aggPrev&&aggPrev.hold_rate,true),colorFor(agg.hold_rate,obj.hold),(obj.hold&&agg.hold_rate!=null)?agg.hold_rate/obj.hold:null)}
+      ${mTile("b3","Impressions (période)",intf(agg.impressions),"cumul année : "+intf(aggCum.impressions)+dl(agg.impressions,aggPrev&&aggPrev.impressions,false),"",null)}
       ${mTile("b4","Budget média",eur(aggCum.spend),budget>0?(budgetPct*100).toFixed(0)+"% du budget "+eur(budget):"budget non défini",budgetPct===null?"":(budgetPct>1?"bad":budgetPct>=.8?"warn":"good"),budgetPct)}
       ${mTile("b4","CPM moyen",agg.cpm!==null?agg.cpm.toFixed(2)+" €":"—","coût pour 1000 impressions","",null)}
       ${mTile("b4","CPE moyen",agg.cpe!==null?agg.cpe.toFixed(2)+" €":"—","coût par engagement","",null)}
@@ -1017,6 +1146,12 @@ function renderDashboard(){
         <span class="sub" style="margin-top:6px">Visites de profil : ${intf(agg.profile_views)}</span></div></div>
       <div class="tile b8"><h3>Analyse par format</h3><div id="fmtTable"></div></div>
       <div class="tile b12"><h3>🏆 Les awards</h3><div id="awards"></div></div>
+      <div class="tile b12"><h3>Analyse &amp; recommandations</h3>
+        <div class="notes-grid">
+          <div><label>🟢 Ce qui fonctionne</label><textarea id="nWorks" placeholder="Points forts de la période…"></textarea></div>
+          <div><label>🟠 À surveiller</label><textarea id="nWatch" placeholder="Points de vigilance…"></textarea></div>
+          <div><label>🎯 Recommandations</label><textarea id="nReco" placeholder="Prochaines actions…"></textarea></div>
+        </div></div>
       <div class="tile b12"><h3>Détail par campagne</h3><div id="campTable"></div></div>
       <div class="tile b6"><h3>Top contenus — hook rate (≥ 1 000 impr.)</h3><div id="topTable"></div></div>
       <div class="tile b6"><h3>Par plateforme</h3><div id="platTable"></div></div>
@@ -1055,6 +1190,12 @@ function renderDashboard(){
 
   renderAggTable("fmtTable", groupBy(rows,"format"), "Format", obj);
   renderAwards("awards", rows);
+  // commentaires éditables (sauvegarde auto par client)
+  const nt=notesFor();
+  $("nWorks").value=nt.works||""; $("nWatch").value=nt.watch||""; $("nReco").value=nt.reco||"";
+  $("nWorks").oninput=e=>{notesFor().works=e.target.value;saveNotes();};
+  $("nWatch").oninput=e=>{notesFor().watch=e.target.value;saveNotes();};
+  $("nReco").oninput=e=>{notesFor().reco=e.target.value;saveNotes();};
   renderAggTable("campTable", groupBy(rows,"campaign"), "Campagne", obj);
   const tops=groupBy(rows,"creative").filter(g=>g.impressions>=1000)
     .sort((a,b)=>(b.hook_rate||0)-(a.hook_rate||0)).slice(0,15);
@@ -1072,6 +1213,7 @@ function renderAwards(elId, rows){
     <div class="av"><span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${valStr}</div></div>`); };
   let g;
   if(g=best(cr.filter(x=>x.impressions>=1000),x=>x.hook_rate,-1)) add("🏆 Meilleur hook rate",g,pct(g.hook_rate));
+  if(g=best(cr,x=>x.watch_time,-1)) add("🏆 Meilleure durée de lecture",g,g.watch_time.toFixed(1)+" s");
   if(g=best(cr,x=>(x.cpm&&x.cpm>0)?x.cpm:null,1)) add("🏆 Meilleur CPM",g,g.cpm.toFixed(2)+" €");
   if(g=best(cr,x=>(x.cpe&&x.cpe>0)?x.cpe:null,1)) add("🏆 Meilleur CPE",g,g.cpe.toFixed(2)+" €");
   if(g=best(cr,x=>x.likes,-1)) add("🏆 + de likes",g,intf(g.likes)+" j'aime");
@@ -1080,6 +1222,44 @@ function renderAwards(elId, rows){
   if(g=best(cr,x=>x.saves,-1)) add("🏆 + d'enregistrements",g,intf(g.saves)+" enreg.");
   $(elId).innerHTML = cards.length? '<div class="awards">'+cards.join("")+'</div>' : '<div class="empty">Pas assez de données pour les awards.</div>';
 }
+
+/* ---------- export du bilan (PDF via impression) ---------- */
+function exportBilan(){
+  const rows=filteredRows();
+  if(!rows.length){ alert("Aucune donnée à exporter pour ce filtre."); return; }
+  const platform=$("fltPlatform").value, obj=objFor(platform==="all"?"global":platform), agg=aggregate(rows);
+  const periodLbl=MONTHS[Number($("fltFrom").value)-1]+"–"+MONTHS[Number($("fltTo").value)-1]+" "+$("fltYear").value;
+  const nt=notesFor(), b=STATE.brand||{};
+  const tableRows=(groups,label)=>`<table><thead><tr><th>${label}</th><th class="num">Impr.</th><th class="num">Hook</th><th class="num">Hold</th><th class="num">Engmt</th><th class="num">Durée</th><th class="num">CPM</th><th class="num">CPE</th><th class="num">Dépense</th></tr></thead><tbody>`+
+    groups.slice().sort((a,b)=>b.impressions-a.impressions).map(g=>`<tr><td>${escapeHtml(g.name)}</td><td class="num">${intf(g.impressions)}</td><td class="num">${pct(g.hook_rate)}</td><td class="num">${pct(g.hold_rate)}</td><td class="num">${pct(g.engagement_rate)}</td><td class="num">${g.watch_time!=null?g.watch_time.toFixed(1)+' s':'—'}</td><td class="num">${g.cpm!=null?g.cpm.toFixed(2)+' €':'—'}</td><td class="num">${g.cpe!=null?g.cpe.toFixed(2)+' €':'—'}</td><td class="num">${eur(g.spend)}</td></tr>`).join("")+`</tbody></table>`;
+  const kpi=(l,v,s)=>`<span class="pk"><small>${l}</small><b>${v}</b>${s?'<small>'+s+'</small>':''}</span>`;
+  const plats=groupBy(rows,"platform").map(g=>({...g,name:PLATFORMS[g.platform].label}));
+  const fmts=groupBy(rows,"format");
+  const tmp=document.createElement('div'); document.body.appendChild(tmp); renderAwards2(tmp,rows); const awardsHtml=tmp.innerHTML; tmp.remove();
+  $("printArea").innerHTML=`
+    <div class="pcover">${b.logo?`<img src="${b.logo}" style="height:46px"><br>`:""}
+      <h1>${escapeHtml(b.name||"Reporting social")}</h1>
+      <div class="psub">${escapeHtml(clientName())} · ${platform==="all"?"toutes plateformes":PLATFORMS[platform].label} · ${periodLbl}</div></div>
+    <h2>Synthèse</h2><div>
+      ${kpi("Engagement",pct(agg.engagement_rate),"objectif "+pct(obj.engagement))}
+      ${kpi("Hook rate",pct(agg.hook_rate),"objectif "+pct(obj.hook))}
+      ${kpi("Hold rate",pct(agg.hold_rate),"objectif "+pct(obj.hold))}
+      ${kpi("Impressions",intf(agg.impressions),"")}
+      ${kpi("Dépense média",eur(agg.spend),"")}
+      ${kpi("CPM",agg.cpm!=null?agg.cpm.toFixed(2)+" €":"—","")}</div>
+    <h2>Par plateforme</h2>${tableRows(plats,"Plateforme")}
+    <h2 class="pbreak">Analyse par format</h2>${tableRows(fmts,"Format")}
+    <h2>Awards</h2><div>${awardsHtml}</div>
+    <h2>Croissance abonnés</h2><div>${kpi("Abonnés nets",(agg.followers>=0?"+":"")+intf(agg.followers),"")}${kpi("Visites de profil",intf(agg.profile_views),"")}</div>
+    <h2 class="pbreak">Analyse &amp; recommandations</h2>
+    <b>🟢 Ce qui fonctionne</b><div class="pnote">${escapeHtml(nt.works||"—")}</div>
+    <b>🟠 À surveiller</b><div class="pnote">${escapeHtml(nt.watch||"—")}</div>
+    <b>🎯 Recommandations</b><div class="pnote">${escapeHtml(nt.reco||"—")}</div>`;
+  window.print();
+}
+// variante de renderAwards qui écrit dans un élément donné (pour le PDF)
+function renderAwards2(el, rows){ el.id="__awtmp"; renderAwards("__awtmp", rows); el.removeAttribute("id"); }
+$("exportBilan").onclick=exportBilan;
 
 function renderAggTable(elId, groups, nameLabel, obj, isTop){
   if(!groups.length){ $(elId).innerHTML='<div class="empty">—</div>'; return; }
@@ -1094,6 +1274,7 @@ function renderAggTable(elId, groups, nameLabel, obj, isTop){
       <td class="num ${hc}">${pct(g.hook_rate)}</td>
       <td class="num ${hdc}">${pct(g.hold_rate)}</td>
       <td class="num">${pct(g.engagement_rate)}</td>
+      <td class="num">${g.watch_time!=null?g.watch_time.toFixed(1)+" s":"—"}</td>
       <td class="num">${g.cpm!==null?g.cpm.toFixed(2)+" €":"—"}</td>
       <td class="num">${g.cpe!==null?g.cpe.toFixed(2)+" €":"—"}</td>
       <td class="num">${eur(g.spend)}</td>
@@ -1101,7 +1282,7 @@ function renderAggTable(elId, groups, nameLabel, obj, isTop){
   $(elId).innerHTML=`<div class="tscroll"><table><thead><tr>
       <th>${nameLabel}</th><th class="num">Impressions</th>
       <th class="num">Hook</th><th class="num">Hold</th><th class="num">Engmt</th>
-      <th class="num">CPM</th><th class="num">CPE</th><th class="num">Dépense</th>
+      <th class="num">Durée</th><th class="num">CPM</th><th class="num">CPE</th><th class="num">Dépense</th>
     </tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
 }
 
@@ -1153,6 +1334,7 @@ $("clearAll").onclick=()=>{ if(confirm("Effacer toutes les données de "+clientN
 
 /* ---------- settings (objectifs par client) ---------- */
 function renderSettings(){
+  renderBrandSettings();
   $("objClientName").textContent=clientName();
   const keys=["global","instagram","facebook","tiktok","linkedin","youtube"];
   const labelFor=k=> k==="global"? "🌐 Global (toutes plateformes)" : `<span class="dot" style="background:${PLATFORMS[k].color}"></span>${PLATFORMS[k].label}`;
@@ -1227,6 +1409,29 @@ function renderBatch(){
   });
 }
 
+function guessType(headers){
+  const h=headers.map(normalizeHeader); const has=s=>h.some(x=>x.includes(s));
+  if(has("montant depense")||has("amount spent")||has("cost")||has("spend")||has("thruplay")||has("3-second")||has("2-second")) return "paid";
+  return "organic";
+}
+async function batchMulti(files){
+  let ok=0;
+  for(const file of files){
+    let raws; try{ raws=await readWorkbookRows(file); }catch(e){ continue; }
+    if(!raws.length) continue;
+    const headers=Object.keys(raws[0]);
+    const p=guessPlatform(headers)||"instagram", t=guessType(headers);
+    const dz=document.querySelector('.slotdrop[data-key="'+p+'|'+t+'"]');
+    if(dz){ await batchHandle(dz,file); ok++; }
+  }
+  toast(ok+" fichier(s) routé(s) automatiquement. Vérifie les cases puis « Analyser ».");
+}
+$("batchMultiDrop").onclick=()=>$("batchMultiInput").click();
+$("batchMultiInput").onchange=e=>{ if(e.target.files.length) batchMulti([...e.target.files]); };
+["dragover","dragenter"].forEach(ev=>$("batchMultiDrop").addEventListener(ev,e=>{e.preventDefault();$("batchMultiDrop").classList.add("hover");}));
+["dragleave","drop"].forEach(ev=>$("batchMultiDrop").addEventListener(ev,e=>{e.preventDefault();$("batchMultiDrop").classList.remove("hover");}));
+$("batchMultiDrop").addEventListener("drop",e=>{ if(e.dataTransfer.files.length) batchMulti([...e.dataTransfer.files]); });
+
 async function batchHandle(dz,file){
   const p=dz.dataset.p, t=dz.dataset.t, key=dz.dataset.key;
   const statusEl=$(stId(key)); statusEl.innerHTML="lecture…";
@@ -1253,13 +1458,14 @@ $("batchAnalyze").onclick=()=>{
   keys.forEach(k=>{ batchStaging[k].rows.forEach(r=>r.client=STATE.currentClient);
     all=all.concat(batchStaging[k].rows); STATE.mappings[k]=batchStaging[k].mapping; });
   const h=pushHistory(`Import groupé — ${all.length} lignes (${clientName()})`);
+  const removed=replacePeriods(all);
   STATE.rows=STATE.rows.concat(all); saveData(); saveMap();
   const year=Number($("batchYear").value);
   const rows=STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===year);
   const n=all.length;
   batchStaging={}; renderBatch();
   renderInlineAnalysis(rows, year, n);
-  toast(`${n} lignes ajoutées pour ${clientName()}.`, h);
+  toast(`${n} lignes ajoutées${removed?` (${removed} remplacées)`:""} pour ${clientName()}.`, h);
   if($("batchResult").scrollIntoView) $("batchResult").scrollIntoView({behavior:"smooth",block:"start"});
 };
 $("batchClear").onclick=()=>{ batchStaging={}; $("batchResult").innerHTML=""; renderBatch(); };
@@ -1294,8 +1500,38 @@ function renderInlineAnalysis(rows, year, added){
    </div>`;
 }
 
+/* ---------- charte agence & accès ---------- */
+function applyBrand(){
+  const b=STATE.brand||{};
+  if(b.color) document.documentElement.style.setProperty('--accent', b.color);
+  const img=$("brandLogoImg");
+  if(b.logo){ img.src=b.logo; img.style.display=""; } else { img.style.display="none"; }
+  $("appTitle").textContent = b.name? b.name+" — Reporting" : "📊 Reporting Social Annuel";
+}
+function renderBrandSettings(){
+  const b=STATE.brand||{};
+  $("brandName").value=b.name||""; $("brandColor").value=b.color||"#3b5bfd"; $("brandPass").value=b.password||"";
+}
+$("saveBrand").onclick=()=>{
+  STATE.brand.name=$("brandName").value.trim();
+  STATE.brand.color=$("brandColor").value;
+  STATE.brand.password=$("brandPass").value.trim();
+  const f=$("brandLogo").files[0];
+  const done=()=>{ saveBrand(); applyBrand(); toast("Charte enregistrée."); };
+  if(f){ const r=new FileReader(); r.onload=e=>{ STATE.brand.logo=e.target.result; done(); }; r.readAsDataURL(f); }
+  else done();
+};
+function checkGate(){
+  const pass=STATE.brand&&STATE.brand.password;
+  if(!pass || sessionStorage.getItem('rsa_unlocked')==='1'){ $("gate").style.display="none"; return; }
+  $("gate").style.display="flex";
+  const tryUnlock=()=>{ if($("gateInput").value===pass){ sessionStorage.setItem('rsa_unlocked','1'); $("gate").style.display="none"; } else $("gateErr").textContent="Code incorrect."; };
+  $("gateBtn").onclick=tryUnlock;
+  $("gateInput").onkeydown=e=>{ if(e.key==="Enter") tryUnlock(); };
+}
+
 /* ---------- init ---------- */
-load(); renderClientSelect(); fillYearMonth(); renderExportHelp(); renderHistory();
+load(); applyBrand(); checkGate(); renderClientSelect(); fillYearMonth(); renderExportHelp(); renderHistory();
 activateTab(location.hash.slice(1)||"batch");   // ouvre l'onglet indiqué dans l'URL
 </script>
 </body>
