@@ -427,6 +427,9 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       <div class="field" style="flex:1 1 240px"><label>Campagne</label><input type="text" id="rf_campaign" placeholder="ex : Influence — Juin"></div>
       <div class="field" style="flex:1 1 240px"><label>Créa / publication</label><input type="text" id="rf_creative" placeholder="ex : Reel @créateur"></div>
     </div>
+    <div class="row">
+      <div class="field" style="flex:1 1 100%"><label>Lien du post (URL réseau social)</label><input type="text" id="rf_url" placeholder="https://www.instagram.com/reel/…"></div>
+    </div>
 
     <h3 style="margin:14px 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Volumes</h3>
     <div class="row">
@@ -495,6 +498,7 @@ function isMetaLike(p){ return p==="instagram"||p==="facebook"||p==="meta"; }
 const FIELDS = [
   {key:"campaign",   label:"Campagne",            req:false},
   {key:"creative",   label:"Créa / publicité",    req:false},
+  {key:"url",        label:"Lien du post (URL)",  req:false},
   {key:"date",       label:"Date (optionnel)",    req:false},
   {key:"impressions",label:"Impressions",         req:true},
   {key:"reach",      label:"Reach / couverture",  req:false},
@@ -520,6 +524,7 @@ const FIELDS = [
 const META_ALIASES = {
   campaign:["campaign name","nom de la campagne","campagne","campaign","type de publication"],
   creative:["ad name","nom de la publicite","publicite","titre","description"],
+  url:["permalink","permalink url","lien","lien permanent","permalien","lien de la publication","lien du post","post url","url","link","lien de l'apercu de la publicite","ad preview link","apercu"],
   date:["heure de publication","day","jour","reporting starts","debut des rapports","date"],
   impressions:["impressions","vues","views"],
   reach:["reach","couverture"],
@@ -546,6 +551,7 @@ const ALIASES = {
   tiktok:{
     campaign:["campaign name","campaign","nom de la campagne"],
     creative:["ad name","video name","nom de la publicite","video title"],
+    url:["video link","lien","permalink","post url","url","link","lien de la video","share url"],
     date:["date","by day","stat time","time","jour"],
     impressions:["impressions","video views","views","vues"],
     reach:["reach"],
@@ -565,6 +571,7 @@ const ALIASES = {
   linkedin:{
     campaign:["campaign name","campaign","nom de la campagne"],
     creative:["creative name","ad name","creative"],
+    url:["landing page","lien","permalink","url","link","destination url"],
     date:["start date","date","day"],
     impressions:["impressions"],
     reach:["reach"],
@@ -577,6 +584,7 @@ const ALIASES = {
   youtube:{
     campaign:["campaign","campagne"],
     creative:["ad name","video title","ad","annonce"],
+    url:["video url","youtube video","lien","url","link","video link"],
     date:["day","date","jour"],
     impressions:["impressions","impr."],
     reach:["unique users","reach","utilisateurs uniques"],
@@ -700,6 +708,18 @@ function parseMonth(dateStr, fallbackMonth){
 
 function safeDiv(a,b){ return (b&&b!==0)? a/b : null; }
 
+// Normalise/valide un lien : accepte http(s) et les domaines sans schéma (ajoute https://) ;
+// bloque les schémas dangereux (anti-injection) ; "" si ça ne ressemble pas à une URL.
+function cleanUrl(u){
+  u=(u||"").trim();
+  if(!u || u==="-") return "";
+  if(/^(javascript|data|vbscript|file|blob):/i.test(u)) return "";   // schémas dangereux
+  if(/^https?:\/\//i.test(u)) return u;
+  if(/^\/\//.test(u)) return "https:"+u;                             // //domaine
+  if(/^[\w-]+(\.[\w-]+)+(\/|$|\?|#)/.test(u)) return "https://"+u;   // domaine.tld[/chemin] sans schéma
+  return "";
+}
+
 // Détection du format d'une créa par mot-clé (dans le nom de créa/campagne)
 const FORMAT_RULES = [
   {label:"Dans le quotidien", kw:["quotidien","dans le quotidien"]},
@@ -751,6 +771,7 @@ function normalizeRows(rawRows, mapping, platform, type, year, fallbackMonth){
       month: parseMonth(get("date"), Number(fallbackMonth)),
       campaign: (get("campaign")!==undefined? String(get("campaign")):"(non précisé)").trim()||"(non précisé)",
       creative: (get("creative")!==undefined? String(get("creative")):"(non précisé)").trim()||"(non précisé)",
+      url: cleanUrl(get("url")!==undefined? String(get("url")):""),
       impressions: toNumber(get("impressions")),
       reach: toNumber(get("reach")),
       spend: toNumber(get("spend")),
@@ -823,11 +844,12 @@ function groupBy(rows, key){
     const k=r[key]||"(non précisé)";
     (groups[k]=groups[k]||[]).push(r);
   }
-  return Object.entries(groups).map(([name,rs])=>({name, platform:rs[0].platform, ...aggregate(rs)}));
+  return Object.entries(groups).map(([name,rs])=>({name, platform:rs[0].platform,
+    url:(rs.find(r=>r.url)||{}).url||"", ...aggregate(rs)}));
 }
 
 if(typeof module!=="undefined" && module.exports){
-  module.exports={normalizeHeader,autoMap,toNumber,parseMonth,computeRates,
+  module.exports={normalizeHeader,autoMap,toNumber,parseMonth,computeRates,cleanUrl,
     normalizeRows,aggregate,monthlySeries,groupBy,FIELDS,ALIASES,DEFAULT_OBJECTIVES,PLATFORMS};
 }
 /* ====================== PURE LOGIC END ====================== */
@@ -1335,9 +1357,11 @@ function renderAwards(elId, rows){
   if(!cr.length){ $(elId).innerHTML='<div class="empty">Pas assez de données pour les awards.</div>'; return; }
   const best=(arr,fn,dir)=>{ const f=arr.filter(g=>fn(g)!=null&&isFinite(fn(g))); return f.length? f.sort((a,b)=>dir*(fn(a)-fn(b)))[0]:null; };
   const cards=[];
-  const add=(title,g,valStr)=>{ if(g) cards.push(`<div class="award"><div class="at">${title}</div>
-    <div class="an" title="${escapeHtml(g.name)}">${escapeHtml(g.name)}</div>
-    <div class="av"><span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${valStr}</div></div>`); };
+  const add=(title,g,valStr)=>{ if(g){ const u=cleanUrl(g.url);
+    const nm=u? `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="color:inherit">${escapeHtml(g.name)} ↗</a>` : escapeHtml(g.name);
+    cards.push(`<div class="award"><div class="at">${title}</div>
+    <div class="an" title="${escapeHtml(g.name)}">${nm}</div>
+    <div class="av"><span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${valStr}</div></div>`); } };
   let g;
   if(g=best(cr.filter(x=>x.impressions>=1000),x=>x.hook_rate,-1)) add("🏆 Meilleur hook rate",g,pct(g.hook_rate));
   if(g=best(cr,x=>x.watch_time,-1)) add("🏆 Meilleure durée de lecture",g,g.watch_time.toFixed(1)+" s");
@@ -1433,9 +1457,11 @@ function exportBilan(){
   const imgDoImp=donutImg(plats.filter(g=>g.impressions>0).map(g=>({label:PLATFORMS[g.platform].label,value:g.impressions,color:PLATFORMS[g.platform].color})));
   const imgDoSp =donutImg(plats.filter(g=>g.spend>0).map(g=>({label:PLATFORMS[g.platform].label,value:g.spend,color:PLATFORMS[g.platform].color})));
 
-  // tableaux
-  const tableRows=(groups,label,nm)=>`<table><thead><tr><th>${label}</th><th class="num">Impr.</th><th class="num">Hook</th><th class="num">Hold</th><th class="num">Engmt</th><th class="num">Durée</th><th class="num">CPM</th><th class="num">CPE</th><th class="num">Dépense</th></tr></thead><tbody>`+
-    groups.slice().sort((a,b)=>b.impressions-a.impressions).map(g=>`<tr><td class="${nm?'nm':''}">${escapeHtml(g.name)}</td><td class="num">${intf(g.impressions)}</td><td class="num">${pct(g.hook_rate)}</td><td class="num">${pct(g.hold_rate)}</td><td class="num">${pct(g.engagement_rate)}</td><td class="num">${g.watch_time!=null?g.watch_time.toFixed(1)+' s':'—'}</td><td class="num">${g.cpm!=null?g.cpm.toFixed(2)+' €':'—'}</td><td class="num">${g.cpe!=null?g.cpe.toFixed(2)+' €':'—'}</td><td class="num">${eur(g.spend)}</td></tr>`).join("")+`</tbody></table>`;
+  // tableaux ; nm=tronque le nom ; link=rend le nom cliquable vers le post
+  const nameCell=(g,nm,link)=>{ const u=link?cleanUrl(g.url):""; const t=escapeHtml(g.name);
+    return u? `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="color:var(--pc);text-decoration:none">${t} ↗</a>` : t; };
+  const tableRows=(groups,label,nm,link)=>`<table><thead><tr><th>${label}</th><th class="num">Impr.</th><th class="num">Hook</th><th class="num">Hold</th><th class="num">Engmt</th><th class="num">Durée</th><th class="num">CPM</th><th class="num">CPE</th><th class="num">Dépense</th></tr></thead><tbody>`+
+    groups.slice().sort((a,b)=>b.impressions-a.impressions).map(g=>`<tr><td class="${nm?'nm':''}">${nameCell(g,nm,link)}</td><td class="num">${intf(g.impressions)}</td><td class="num">${pct(g.hook_rate)}</td><td class="num">${pct(g.hold_rate)}</td><td class="num">${pct(g.engagement_rate)}</td><td class="num">${g.watch_time!=null?g.watch_time.toFixed(1)+' s':'—'}</td><td class="num">${g.cpm!=null?g.cpm.toFixed(2)+' €':'—'}</td><td class="num">${g.cpe!=null?g.cpe.toFixed(2)+' €':'—'}</td><td class="num">${eur(g.spend)}</td></tr>`).join("")+`</tbody></table>`;
   const platsT=plats.map(g=>({...g,name:PLATFORMS[g.platform].label}));
   const fmts=groupBy(rows,"format");
   const tops=groupBy(rows,"creative").filter(g=>g.impressions>=1000).sort((a,b)=>(b.hook_rate||0)-(a.hook_rate||0)).slice(0,10);
@@ -1473,7 +1499,7 @@ function exportBilan(){
 
     <section class="pbreak"><h2 class="sec">Performance par plateforme</h2>${tableRows(platsT,"Plateforme")}</section>
     <section><h2 class="sec">Analyse par format</h2>${tableRows(fmts,"Format")}</section>
-    ${tops.length?`<section><h2 class="sec">Top contenus — hook rate</h2>${tableRows(tops,"Créa",true)}</section>`:""}
+    ${tops.length?`<section><h2 class="sec">Top contenus — hook rate</h2>${tableRows(tops,"Créa",true,true)}<p class="muted" style="margin:8px 0 0;font-size:9.5px">↗ Cliquez sur un contenu pour ouvrir le post sur le réseau social.</p></section>`:""}
 
     <section class="pbreak"><h2 class="sec">Les awards de la période</h2><div class="awgrid">${awardsHtml}</div></section>
     <section><h2 class="sec">Communauté</h2>
@@ -1505,8 +1531,10 @@ function renderAggTable(elId, groups, nameLabel, obj, isTop){
   const rowsHtml=sorted.map(g=>{
     const o = objFor(g.platform) || obj;
     const hc=colorFor(g.hook_rate,o?o.hook:null), hdc=colorFor(g.hold_rate,o?o.hold:null);
+    const u=isTop?cleanUrl(g.url):"";
+    const nameH=u? `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">${escapeHtml(g.name)} ↗</a>` : escapeHtml(g.name);
     return `<tr>
-      <td class="nm" title="${escapeHtml(g.name)}"><span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${escapeHtml(g.name)}</td>
+      <td class="nm" title="${escapeHtml(g.name)}"><span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${nameH}</td>
       <td class="num">${intf(g.impressions)}</td>
       <td class="num ${hc}">${pct(g.hook_rate)}</td>
       <td class="num ${hdc}">${pct(g.hold_rate)}</td>
@@ -1537,7 +1565,7 @@ function renderData(){
       <td><span class="dot" style="background:${PLATFORMS[r.platform].color}"></span>${PLATFORMS[r.platform].label}</td>
       <td><span class="tag">${(r.type||"paid")==="paid"?"Paid":"Organique"}</span></td>
       <td>${r.year}</td><td>${MONTHS[r.month-1]}</td>
-      <td class="nm" title="${escapeHtml(r.campaign)}">${escapeHtml(r.campaign)}</td><td class="nm" title="${escapeHtml(r.creative)}">${escapeHtml(r.creative)}</td>
+      <td class="nm" title="${escapeHtml(r.campaign)}">${escapeHtml(r.campaign)}</td><td class="nm" title="${escapeHtml(r.creative)}">${cleanUrl(r.url)?`<a href="${escapeHtml(cleanUrl(r.url))}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">${escapeHtml(r.creative)} ↗</a>`:escapeHtml(r.creative)}</td>
       <td class="num">${intf(r.impressions)}</td><td class="num">${pct(r.hook_rate)}</td><td class="num">${pct(r.hold_rate)}</td>
       <td style="white-space:nowrap"><button class="actbtn" data-edit="${r.id}" title="Modifier">✏️</button> <button class="actbtn del" data-del="${r.id}" title="Supprimer">🗑</button></td>
     </tr>`).join("")}</tbody></table></div>`;
@@ -1594,6 +1622,7 @@ function openRowModal(id){
   $("rf_month").value = r ? r.month : (new Date().getMonth()+1);
   setV("rf_campaign", r && r.campaign!=="(non précisé)" ? r.campaign : "");
   setV("rf_creative", r && r.creative!=="(non précisé)" ? r.creative : "");
+  setV("rf_url", r ? (r.url||"") : "");
   ["impressions","reach","spend","likes","comments","shares","saves","followers","profile_views","hook_views","hold_views","completions","watch_time"]
     .forEach(k=>setV("rf_"+k, r ? r[k] : ""));
   setV("rf_interactions", r && r.interactions ? r.interactions : "");
@@ -1616,6 +1645,7 @@ function readRowForm(){
     year:Number($("rf_year").value), month:Number($("rf_month").value),
     campaign:($("rf_campaign").value.trim())||"(non précisé)",
     creative:($("rf_creative").value.trim())||"(non précisé)",
+    url:cleanUrl($("rf_url").value),
     impressions:num("rf_impressions"), reach:num("rf_reach"), spend:num("rf_spend"),
     likes:num("rf_likes"), comments:num("rf_comments"), shares:num("rf_shares"), saves:num("rf_saves"),
     followers:fol("rf_followers"), profile_views:num("rf_profile_views"),
