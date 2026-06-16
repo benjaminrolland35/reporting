@@ -430,6 +430,13 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     <div class="row">
       <div class="field" style="flex:1 1 100%"><label>Lien du post (URL réseau social)</label><input type="text" id="rf_url" placeholder="https://www.instagram.com/reel/…"></div>
     </div>
+    <div class="row" style="align-items:flex-end">
+      <div class="field"><label>Nature</label><select id="rf_nature"><option value="filrouge">Fil rouge</option><option value="activation">Activation</option></select></div>
+      <div class="field"><label>Format</label><select id="rf_format"></select></div>
+      <div class="field" style="flex:1 1 auto"><label>&nbsp;</label>
+        <label style="display:flex;flex-direction:row;align-items:center;gap:8px;color:var(--txt);font-weight:500;cursor:pointer;padding:9px 0">
+          <input type="checkbox" id="rf_influence" style="width:18px;height:18px;min-width:0;margin:0"> Contenu influence / créateur</label></div>
+    </div>
 
     <h3 style="margin:14px 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Volumes</h3>
     <div class="row">
@@ -499,6 +506,8 @@ const FIELDS = [
   {key:"campaign",   label:"Campagne",            req:false},
   {key:"creative",   label:"Créa / publicité",    req:false},
   {key:"url",        label:"Lien du post (URL)",  req:false},
+  {key:"nature",     label:"Nature (fil rouge / activation)", req:false},
+  {key:"influence",  label:"Influence (oui/non)", req:false},
   {key:"date",       label:"Date (optionnel)",    req:false},
   {key:"impressions",label:"Impressions",         req:true},
   {key:"reach",      label:"Reach / couverture",  req:false},
@@ -525,6 +534,8 @@ const META_ALIASES = {
   campaign:["campaign name","nom de la campagne","campagne","campaign","type de publication"],
   creative:["ad name","nom de la publicite","publicite","titre","description"],
   url:["permalink","permalink url","lien","lien permanent","permalien","lien de la publication","lien du post","post url","url","link","lien de l'apercu de la publicite","ad preview link","apercu"],
+  nature:["nature","type de contenu","fil rouge / activation","categorie","programme"],
+  influence:["influence","influenceur","createur","creator","collab","partenariat"],
   date:["heure de publication","day","jour","reporting starts","debut des rapports","date"],
   impressions:["impressions","vues","views"],
   reach:["reach","couverture"],
@@ -735,6 +746,22 @@ function detectFormat(text){
   return "Autre";
 }
 
+// Nature éditoriale du contenu : fil rouge (always-on) vs activation (temps fort).
+const NATURES = { filrouge:{label:"Fil rouge", color:"#0ea5e9"}, activation:{label:"Activation", color:"#f59e0b"} };
+function detectNature(text){
+  const s=normalizeHeader(text);
+  if(/activation|temps fort|tempsfort|operation|jeu concours|concours|lancement|teasing|black friday|noel|paques|soldes|saint valentin|halloween/.test(s)) return "activation";
+  return "filrouge";   // défaut : la majorité de l'année est en fil rouge
+}
+// Détecte un contenu influence/créateur d'après le nom de campagne/créa.
+function detectInfluence(text){
+  return /influ|createur|creator|collab|partenariat|nano|micro-influ/.test(normalizeHeader(text));
+}
+// Normalise une valeur de nature saisie/importée vers 'filrouge' | 'activation'.
+function parseNature(v){ const s=normalizeHeader(v); if(!s) return null;
+  if(/activ/.test(s)) return "activation"; if(/fil|always|rouge/.test(s)) return "filrouge"; return null; }
+function parseBool(v){ const s=normalizeHeader(v); return /^(1|oui|yes|true|vrai|x|influence|influ)/.test(s); }
+
 // Calcule hook/hold/completion + CPM/CPE/engagement selon la plateforme
 function computeRates(platform, r){
   const imp=r.impressions, hook=r.hook_views, hold=r.hold_views, comp=r.completions;
@@ -787,6 +814,10 @@ function normalizeRows(rawRows, mapping, platform, type, year, fallbackMonth){
       watch_time: parseDuration(get("watch_time")),
     };
     rec.format = detectFormat(rec.creative+" "+rec.campaign);
+    // nature & influence : colonne mappée si présente, sinon déduites du nom campagne/créa
+    rec.nature = parseNature(get("nature")) || detectNature(rec.campaign+" "+rec.creative);
+    const infV=get("influence");
+    rec.influence = (infV!==undefined && String(infV).trim()!=="") ? parseBool(infV) : detectInfluence(rec.campaign+" "+rec.creative);
     // interactions = colonne explicite si présente, sinon somme (j'aime + comm. + partages + enreg.)
     const explicitInter=toNumber(get("interactions"));
     rec.interactions = explicitInter>0 ? explicitInter : (rec.likes+rec.comments+rec.shares+rec.saves);
@@ -845,12 +876,13 @@ function groupBy(rows, key){
     (groups[k]=groups[k]||[]).push(r);
   }
   return Object.entries(groups).map(([name,rs])=>({name, platform:rs[0].platform,
-    url:(rs.find(r=>r.url)||{}).url||"", ...aggregate(rs)}));
+    url:(rs.find(r=>r.url)||{}).url||"", nature:rs[0].nature||"filrouge", influence:rs.some(r=>r.influence),
+    ...aggregate(rs)}));
 }
 
 if(typeof module!=="undefined" && module.exports){
-  module.exports={normalizeHeader,autoMap,toNumber,parseMonth,computeRates,cleanUrl,
-    normalizeRows,aggregate,monthlySeries,groupBy,FIELDS,ALIASES,DEFAULT_OBJECTIVES,PLATFORMS};
+  module.exports={normalizeHeader,autoMap,toNumber,parseMonth,computeRates,cleanUrl,detectNature,detectInfluence,
+    normalizeRows,aggregate,monthlySeries,groupBy,FIELDS,ALIASES,DEFAULT_OBJECTIVES,PLATFORMS,NATURES};
 }
 /* ====================== PURE LOGIC END ====================== */
 
@@ -878,6 +910,14 @@ function load(){
   try{ STATE.notes=JSON.parse(localStorage.getItem(LS_NOTES))||{}; }catch(e){ STATE.notes={}; }
   try{ STATE.brand=JSON.parse(localStorage.getItem(LS_BRAND))||{}; }catch(e){ STATE.brand={}; }
   STATE.currentClient=localStorage.getItem(LS_CUR)||null;
+  // migration : enrichit les lignes importées avant l'ajout de nature/influence/url
+  let migrated=false;
+  for(const r of STATE.rows){
+    if(r.nature===undefined){ r.nature=detectNature((r.campaign||"")+" "+(r.creative||"")); migrated=true; }
+    if(r.influence===undefined){ r.influence=detectInfluence((r.campaign||"")+" "+(r.creative||"")); migrated=true; }
+    if(r.url===undefined){ r.url=""; migrated=true; }
+  }
+  if(migrated) saveData();
   if(!STATE.clients.length){ const id=uid(); STATE.clients=[{id,name:"Mon premier client"}]; STATE.currentClient=id; saveClients(); }
   if(!STATE.clients.find(c=>c.id===STATE.currentClient)) STATE.currentClient=STATE.clients[0].id;
   ensureObjectives(STATE.currentClient);
@@ -898,7 +938,10 @@ function saveMap(){ localStorage.setItem(LS_MAP, JSON.stringify(STATE.mappings))
 function saveClients(){ localStorage.setItem(LS_CLIENTS, JSON.stringify(STATE.clients)); localStorage.setItem(LS_CUR, STATE.currentClient); }
 function saveNotes(){ localStorage.setItem(LS_NOTES, JSON.stringify(STATE.notes)); }
 function saveBrand(){ localStorage.setItem(LS_BRAND, JSON.stringify(STATE.brand)); }
-function notesFor(){ if(!STATE.notes[STATE.currentClient]) STATE.notes[STATE.currentClient]={works:"",watch:"",reco:""}; return STATE.notes[STATE.currentClient]; }
+function notesFor(){ const n=STATE.notes[STATE.currentClient]||(STATE.notes[STATE.currentClient]={works:"",watch:"",reco:""});
+  if(n.context===undefined) n.context="";          // bandeau contexte (justif. variations)
+  if(n.conflict===undefined) n.conflict=false;     // marqueur conflit / point de vigilance
+  return n; }
 function saveHist(){
   try{ localStorage.setItem(LS_HIST, JSON.stringify(STATE.history)); }
   catch(e){ STATE.history=STATE.history.slice(0,5); try{ localStorage.setItem(LS_HIST, JSON.stringify(STATE.history)); }catch(_){} }
@@ -1274,6 +1317,14 @@ function renderDashboard(){
   const platLbl = platform!=="all"?PLATFORMS[platform].label:"toutes plateformes";
   box.innerHTML=`
     <div class="bento">
+      <div class="tile b12" id="ctxBanner">
+        <div class="flex-between" style="margin-bottom:8px">
+          <h3 style="margin:0">📌 Contexte de la période — à retenir</h3>
+          <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--txt);cursor:pointer;font-weight:600">
+            <input type="checkbox" id="ctxConflict" style="width:16px;height:16px;min-width:0;margin:0"> ⚠ Point de vigilance / conflit potentiel</label>
+        </div>
+        <textarea id="ctxNote" placeholder="Justifie une hausse ou une baisse de performance liée à une activité (temps fort, influence, bad buzz, rupture de stock, période creuse…). Ce texte apparaît en haut du bilan PDF." style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:10px;font:inherit;font-size:13px;resize:vertical;min-height:60px"></textarea>
+      </div>
       <div class="tile b12" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
         <div style="font-size:15px"><b>${escapeHtml(clientName())}</b> · ${platLbl}</div>
         <div style="color:var(--muted)">${periodLbl}</div></div>
@@ -1345,6 +1396,13 @@ function renderDashboard(){
   $("nWorks").oninput=e=>{notesFor().works=e.target.value;saveNotes();};
   $("nWatch").oninput=e=>{notesFor().watch=e.target.value;saveNotes();};
   $("nReco").oninput=e=>{notesFor().reco=e.target.value;saveNotes();};
+  // bandeau contexte + marqueur conflit
+  const applyCtxStyle=()=>{ const on=$("ctxConflict").checked, b=$("ctxBanner");
+    b.style.borderLeft="4px solid "+(on?"var(--red)":"var(--accent)");
+    b.style.background=on?"#fef2f2":"var(--panel)"; };
+  $("ctxNote").value=nt.context||""; $("ctxConflict").checked=!!nt.conflict; applyCtxStyle();
+  $("ctxNote").oninput=e=>{notesFor().context=e.target.value;saveNotes();};
+  $("ctxConflict").onchange=e=>{notesFor().conflict=e.target.checked;saveNotes();applyCtxStyle();};
   renderAggTable("campTable", groupBy(rows,"campaign"), "Campagne", obj);
   const tops=groupBy(rows,"creative").filter(g=>g.impressions>=1000)
     .sort((a,b)=>(b.hook_rate||0)-(a.hook_rate||0)).slice(0,15);
@@ -1558,14 +1616,19 @@ function renderData(){
   const clientRows=STATE.rows.filter(r=>r.client===STATE.currentClient);
   if(!clientRows.length){ box.innerHTML='<div class="empty">Aucune donnée importée pour '+escapeHtml(clientName())+'.</div>'; return; }
   const recent=clientRows.slice().sort((a,b)=> (b.year-a.year)||(b.month-a.month)).slice(0,300);
-  box.innerHTML=`<p class="note">${clientRows.length} lignes pour <b>${escapeHtml(clientName())}</b> (300 plus récentes affichées). Clique ✏️ pour corriger une ligne (ex : ajouter l'organique) ou 🗑 pour la supprimer.</p>
-    <div class="tscroll"><table><thead><tr><th>Plateforme</th><th>Type</th><th>Année</th><th>Mois</th><th>Campagne</th><th>Créa</th>
+  const natTag=n=>{ const N=NATURES[n]||NATURES.filrouge; return `<span class="tag" style="border-color:${N.color};color:${N.color}">${N.label}</span>`; };
+  const inflTag=v=> v?`<span class="tag" style="border-color:#a855f7;color:#a855f7">★ Influence</span>`:'<span style="color:var(--line)">—</span>';
+  box.innerHTML=`<p class="note">${clientRows.length} lignes pour <b>${escapeHtml(clientName())}</b> (300 plus récentes affichées). Clique ✏️ pour corriger une ligne (nature, format, influence, organique…) ou 🗑 pour la supprimer.</p>
+    <div class="tscroll"><table><thead><tr><th>Plateforme</th><th>Type</th><th>Nature</th><th>Mois</th><th>Campagne</th><th>Créa</th><th>Format</th><th>Influence</th>
     <th class="num">Impr.</th><th class="num">Hook</th><th class="num">Hold</th><th></th></tr></thead>
     <tbody>${recent.map(r=>`<tr>
       <td><span class="dot" style="background:${PLATFORMS[r.platform].color}"></span>${PLATFORMS[r.platform].label}</td>
       <td><span class="tag">${(r.type||"paid")==="paid"?"Paid":"Organique"}</span></td>
-      <td>${r.year}</td><td>${MONTHS[r.month-1]}</td>
+      <td>${natTag(r.nature)}</td>
+      <td>${MONTHS[r.month-1]} ${r.year}</td>
       <td class="nm" title="${escapeHtml(r.campaign)}">${escapeHtml(r.campaign)}</td><td class="nm" title="${escapeHtml(r.creative)}">${cleanUrl(r.url)?`<a href="${escapeHtml(cleanUrl(r.url))}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">${escapeHtml(r.creative)} ↗</a>`:escapeHtml(r.creative)}</td>
+      <td>${escapeHtml(r.format||"Autre")}</td>
+      <td>${inflTag(r.influence)}</td>
       <td class="num">${intf(r.impressions)}</td><td class="num">${pct(r.hook_rate)}</td><td class="num">${pct(r.hold_rate)}</td>
       <td style="white-space:nowrap"><button class="actbtn" data-edit="${r.id}" title="Modifier">✏️</button> <button class="actbtn del" data-del="${r.id}" title="Supprimer">🗑</button></td>
     </tr>`).join("")}</tbody></table></div>`;
@@ -1608,6 +1671,8 @@ function fillRowModalSelects(){
   for(let y=yNow+1;y>=yNow-4;y--) yrs+=`<option value="${y}">${y}</option>`;
   $("rf_year").innerHTML=yrs;
   $("rf_month").innerHTML=MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join("");
+  const fmts=FORMAT_RULES.map(r=>r.label).concat("Autre");
+  $("rf_format").innerHTML=fmts.map(f=>`<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join("");
 }
 function setV(id,v){ $(id).value=(v===null||v===undefined||v==="")?"":v; }
 function openRowModal(id){
@@ -1623,6 +1688,12 @@ function openRowModal(id){
   setV("rf_campaign", r && r.campaign!=="(non précisé)" ? r.campaign : "");
   setV("rf_creative", r && r.creative!=="(non précisé)" ? r.creative : "");
   setV("rf_url", r ? (r.url||"") : "");
+  $("rf_nature").value = r ? (r.nature||"filrouge") : "filrouge";
+  // format : ajoute l'option si elle n'est pas dans la liste connue
+  const fval = r ? (r.format||"Autre") : "Autre";
+  if(!Array.from($("rf_format").options).some(o=>o.value===fval)) $("rf_format").add(new Option(fval,fval));
+  $("rf_format").value = fval;
+  $("rf_influence").checked = r ? !!r.influence : false;
   ["impressions","reach","spend","likes","comments","shares","saves","followers","profile_views","hook_views","hold_views","completions","watch_time"]
     .forEach(k=>setV("rf_"+k, r ? r[k] : ""));
   setV("rf_interactions", r && r.interactions ? r.interactions : "");
@@ -1646,13 +1717,13 @@ function readRowForm(){
     campaign:($("rf_campaign").value.trim())||"(non précisé)",
     creative:($("rf_creative").value.trim())||"(non précisé)",
     url:cleanUrl($("rf_url").value),
+    nature:$("rf_nature").value, format:$("rf_format").value||"Autre", influence:$("rf_influence").checked,
     impressions:num("rf_impressions"), reach:num("rf_reach"), spend:num("rf_spend"),
     likes:num("rf_likes"), comments:num("rf_comments"), shares:num("rf_shares"), saves:num("rf_saves"),
     followers:fol("rf_followers"), profile_views:num("rf_profile_views"),
     hook_views:num("rf_hook_views"), hold_views:num("rf_hold_views"),
     completions:num("rf_completions"), watch_time:wt(),
   };
-  rec.format=detectFormat(rec.creative+" "+rec.campaign);
   const explicitInter=num("rf_interactions");
   rec.interactions = explicitInter>0 ? explicitInter : (rec.likes+rec.comments+rec.shares+rec.saves);
   rec._hookIn=pctOrNull("rf_hookrate"); rec._holdIn=pctOrNull("rf_holdrate");
