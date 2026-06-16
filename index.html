@@ -122,6 +122,11 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .empty{color:var(--muted);text-align:center;padding:40px}
 .chartbox{position:relative;height:300px}
 .flex-between{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:120;display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto}
+.modal-box{max-width:760px;width:100%;margin:auto}
+.actbtn{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:7px;padding:4px 9px;cursor:pointer;font-size:13px}
+.actbtn:hover{border-color:var(--accent)}
+.actbtn.del:hover{border-color:var(--red);color:var(--red)}
 .tag{font-size:11px;padding:2px 8px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
 .helpbox{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--accent);
   border-radius:10px;padding:14px 16px;margin:4px 0 16px;font-size:13px;line-height:1.6}
@@ -296,6 +301,7 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       <div class="flex-between">
         <h2 style="margin:0">Données importées</h2>
         <div class="row" style="margin:0">
+          <button class="btn" id="addRowBtn">➕ Ajouter un post</button>
           <button class="btn sec" id="exportJson">Exporter (.json)</button>
           <button class="btn sec" id="importJsonBtn">Importer (.json)</button>
           <input type="file" id="importJson" accept=".json" style="display:none">
@@ -344,6 +350,72 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     <input type="password" id="gateInput" placeholder="Code d'accès" style="width:100%;margin-bottom:10px">
     <button class="btn" id="gateBtn" style="width:100%">Entrer</button>
     <p class="note" id="gateErr" style="color:var(--red);min-height:16px"></p>
+  </div>
+</div>
+
+<!-- ================= MODALE AJOUT / ÉDITION DE POST ================= -->
+<div id="rowModal" class="modal" style="display:none">
+  <div class="modal-box card">
+    <div class="flex-between">
+      <h2 id="rowModalTitle" style="margin:0">Ajouter un post</h2>
+      <button class="btn sec" id="rowModalClose" style="padding:6px 12px">✕</button>
+    </div>
+    <p class="note">Saisis les chiffres réels (paid + organique cumulés si tu veux refléter la vraie performance). Pour un post <b>non sponsorisé</b>, laisse la dépense à 0. Les taux (hook/hold/engagement, CPM/CPE) sont <b>recalculés automatiquement</b> à partir des volumes ci-dessous. Si tu ne connais qu'un pourcentage, force-le dans « Forcer les taux ».</p>
+
+    <div class="row">
+      <div class="field"><label>Plateforme</label><select id="rf_platform"></select></div>
+      <div class="field"><label>Type</label><select id="rf_type"><option value="paid">Paid</option><option value="organic">Organique</option></select></div>
+      <div class="field"><label>Année</label><select id="rf_year"></select></div>
+      <div class="field"><label>Mois</label><select id="rf_month"></select></div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1 1 240px"><label>Campagne</label><input type="text" id="rf_campaign" placeholder="ex : Influence — Juin"></div>
+      <div class="field" style="flex:1 1 240px"><label>Créa / publication</label><input type="text" id="rf_creative" placeholder="ex : Reel @créateur"></div>
+    </div>
+
+    <h3 style="margin:14px 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Volumes</h3>
+    <div class="row">
+      <div class="field"><label>Impressions</label><input type="number" id="rf_impressions" min="0" placeholder="0"></div>
+      <div class="field"><label>Reach / couverture</label><input type="number" id="rf_reach" min="0" placeholder="0"></div>
+      <div class="field"><label>Dépense média €</label><input type="number" id="rf_spend" min="0" step="0.01" placeholder="0"></div>
+    </div>
+
+    <h3 style="margin:14px 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Engagement</h3>
+    <div class="row">
+      <div class="field"><label>J'aime / réactions</label><input type="number" id="rf_likes" min="0" placeholder="0"></div>
+      <div class="field"><label>Commentaires</label><input type="number" id="rf_comments" min="0" placeholder="0"></div>
+      <div class="field"><label>Partages</label><input type="number" id="rf_shares" min="0" placeholder="0"></div>
+      <div class="field"><label>Enregistrements</label><input type="number" id="rf_saves" min="0" placeholder="0"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Interactions totales (sinon = somme)</label><input type="number" id="rf_interactions" min="0" placeholder="auto"></div>
+      <div class="field"><label>Abonnés nets</label><input type="number" id="rf_followers" placeholder="0"></div>
+      <div class="field"><label>Visites de profil</label><input type="number" id="rf_profile_views" min="0" placeholder="0"></div>
+    </div>
+
+    <h3 style="margin:14px 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Vidéo</h3>
+    <div class="row">
+      <div class="field"><label>Vues hook</label><input type="number" id="rf_hook_views" min="0" placeholder="0"></div>
+      <div class="field"><label>Vues hold / ThruPlay</label><input type="number" id="rf_hold_views" min="0" placeholder="0"></div>
+      <div class="field"><label>Complétions (100%)</label><input type="number" id="rf_completions" min="0" placeholder="0"></div>
+      <div class="field"><label>Durée lecture moy. (s)</label><input type="number" id="rf_watch_time" min="0" step="0.1" placeholder="0"></div>
+    </div>
+
+    <details style="margin-top:10px">
+      <summary style="cursor:pointer;color:var(--muted);font-size:13px">Forcer les taux (optionnel)</summary>
+      <p class="note">À utiliser uniquement si tu connais le pourcentage sans avoir les volumes (ex : reporting influence qui ne donne que le taux d'engagement). Laisse vide pour un calcul automatique.</p>
+      <div class="row">
+        <div class="field"><label>Hook rate %</label><input type="number" id="rf_hookrate" min="0" step="0.1" placeholder="auto"></div>
+        <div class="field"><label>Hold rate %</label><input type="number" id="rf_holdrate" min="0" step="0.1" placeholder="auto"></div>
+        <div class="field"><label>Engagement %</label><input type="number" id="rf_engrate" min="0" step="0.1" placeholder="auto"></div>
+        <div class="field"><label>CPE €</label><input type="number" id="rf_cpe" min="0" step="0.01" placeholder="auto"></div>
+      </div>
+    </details>
+
+    <div class="row" style="margin-top:14px">
+      <button class="btn" id="rowModalSave">Enregistrer</button>
+      <button class="btn sec" id="rowModalCancel">Annuler</button>
+    </div>
   </div>
 </div>
 
@@ -1293,16 +1365,19 @@ function renderData(){
   const clientRows=STATE.rows.filter(r=>r.client===STATE.currentClient);
   if(!clientRows.length){ box.innerHTML='<div class="empty">Aucune donnée importée pour '+escapeHtml(clientName())+'.</div>'; return; }
   const recent=clientRows.slice().sort((a,b)=> (b.year-a.year)||(b.month-a.month)).slice(0,300);
-  box.innerHTML=`<p class="note">${clientRows.length} lignes pour <b>${escapeHtml(clientName())}</b> (300 plus récentes affichées).</p>
+  box.innerHTML=`<p class="note">${clientRows.length} lignes pour <b>${escapeHtml(clientName())}</b> (300 plus récentes affichées). Clique ✏️ pour corriger une ligne (ex : ajouter l'organique) ou 🗑 pour la supprimer.</p>
     <div class="tscroll"><table><thead><tr><th>Plateforme</th><th>Type</th><th>Année</th><th>Mois</th><th>Campagne</th><th>Créa</th>
-    <th class="num">Impr.</th><th class="num">Hook</th><th class="num">Hold</th></tr></thead>
+    <th class="num">Impr.</th><th class="num">Hook</th><th class="num">Hold</th><th></th></tr></thead>
     <tbody>${recent.map(r=>`<tr>
       <td><span class="dot" style="background:${PLATFORMS[r.platform].color}"></span>${PLATFORMS[r.platform].label}</td>
       <td><span class="tag">${(r.type||"paid")==="paid"?"Paid":"Organique"}</span></td>
       <td>${r.year}</td><td>${MONTHS[r.month-1]}</td>
       <td class="nm" title="${escapeHtml(r.campaign)}">${escapeHtml(r.campaign)}</td><td class="nm" title="${escapeHtml(r.creative)}">${escapeHtml(r.creative)}</td>
       <td class="num">${intf(r.impressions)}</td><td class="num">${pct(r.hook_rate)}</td><td class="num">${pct(r.hold_rate)}</td>
+      <td style="white-space:nowrap"><button class="actbtn" data-edit="${r.id}" title="Modifier">✏️</button> <button class="actbtn del" data-del="${r.id}" title="Supprimer">🗑</button></td>
     </tr>`).join("")}</tbody></table></div>`;
+  box.querySelectorAll("button[data-edit]").forEach(b=>b.onclick=()=>openRowModal(b.dataset.edit));
+  box.querySelectorAll("button[data-del]").forEach(b=>b.onclick=()=>deleteRow(b.dataset.del));
 }
 $("exportJson").onclick=()=>{
   const payload={client:clientName(), objectives:STATE.objectives[STATE.currentClient],
@@ -1331,6 +1406,94 @@ $("clearAll").onclick=()=>{ if(confirm("Effacer toutes les données de "+clientN
   const h=pushHistory(`Effacement des données — ${clientName()}`);
   STATE.rows=STATE.rows.filter(r=>r.client!==STATE.currentClient); saveData(); renderData();
   toast("Données effacées pour "+clientName()+".", h); } };
+
+/* ---------- ajout / édition manuelle d'un post ---------- */
+let editingRowId=null;   // null => création d'un nouveau post
+function fillRowModalSelects(){
+  $("rf_platform").innerHTML=Object.entries(PLATFORMS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+  const yNow=new Date().getFullYear(); let yrs="";
+  for(let y=yNow+1;y>=yNow-4;y--) yrs+=`<option value="${y}">${y}</option>`;
+  $("rf_year").innerHTML=yrs;
+  $("rf_month").innerHTML=MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join("");
+}
+function setV(id,v){ $(id).value=(v===null||v===undefined||v==="")?"":v; }
+function openRowModal(id){
+  if(!STATE.currentClient){ alert("Crée d'abord un client."); return; }
+  fillRowModalSelects();
+  editingRowId=id||null;
+  const r = id ? STATE.rows.find(x=>x.id===id) : null;
+  $("rowModalTitle").textContent = r ? "Modifier le post" : "Ajouter un post";
+  $("rf_platform").value = r ? r.platform : "instagram";
+  $("rf_type").value = r ? (r.type||"paid") : "organic";
+  $("rf_year").value = r ? r.year : new Date().getFullYear();
+  $("rf_month").value = r ? r.month : (new Date().getMonth()+1);
+  setV("rf_campaign", r && r.campaign!=="(non précisé)" ? r.campaign : "");
+  setV("rf_creative", r && r.creative!=="(non précisé)" ? r.creative : "");
+  ["impressions","reach","spend","likes","comments","shares","saves","followers","profile_views","hook_views","hold_views","completions","watch_time"]
+    .forEach(k=>setV("rf_"+k, r ? r[k] : ""));
+  setV("rf_interactions", r && r.interactions ? r.interactions : "");
+  setV("rf_hookrate", r && r._hookIn!=null ? +(r._hookIn*100).toFixed(2) : "");
+  setV("rf_holdrate", r && r._holdIn!=null ? +(r._holdIn*100).toFixed(2) : "");
+  setV("rf_engrate",  r && r._engIn!=null  ? +(r._engIn*100).toFixed(2)  : "");
+  setV("rf_cpe",      r && r._cpeIn!=null  ? r._cpeIn : "");
+  $("rowModal").style.display="flex";
+}
+function closeRowModal(){ $("rowModal").style.display="none"; editingRowId=null; }
+function readRowForm(){
+  const num=id=>{ const v=$(id).value.trim(); return v===""?0:Math.max(0,Number(v)||0); };
+  const fol=id=>{ const v=$(id).value.trim(); return v===""?0:(Number(v)||0); };   // peut être négatif (abonnés nets)
+  const wt =()=>{ const v=$("rf_watch_time").value.trim(); return v===""?0:Math.max(0,Number(v)||0); };
+  const pctOrNull=id=>{ const v=$(id).value.trim(); if(v==="") return null; return Math.max(0,Number(v)||0)/100; };
+  const numOrNull=id=>{ const v=$(id).value.trim(); if(v==="") return null; return Math.max(0,Number(v)||0); };
+  const platform=$("rf_platform").value;
+  const rec={
+    client:STATE.currentClient, platform, type:$("rf_type").value,
+    year:Number($("rf_year").value), month:Number($("rf_month").value),
+    campaign:($("rf_campaign").value.trim())||"(non précisé)",
+    creative:($("rf_creative").value.trim())||"(non précisé)",
+    impressions:num("rf_impressions"), reach:num("rf_reach"), spend:num("rf_spend"),
+    likes:num("rf_likes"), comments:num("rf_comments"), shares:num("rf_shares"), saves:num("rf_saves"),
+    followers:fol("rf_followers"), profile_views:num("rf_profile_views"),
+    hook_views:num("rf_hook_views"), hold_views:num("rf_hold_views"),
+    completions:num("rf_completions"), watch_time:wt(),
+  };
+  rec.format=detectFormat(rec.creative+" "+rec.campaign);
+  const explicitInter=num("rf_interactions");
+  rec.interactions = explicitInter>0 ? explicitInter : (rec.likes+rec.comments+rec.shares+rec.saves);
+  rec._hookIn=pctOrNull("rf_hookrate"); rec._holdIn=pctOrNull("rf_holdrate");
+  rec._engIn=pctOrNull("rf_engrate");  rec._cpeIn=numOrNull("rf_cpe");
+  Object.assign(rec, computeRates(platform, rec));
+  return rec;
+}
+$("addRowBtn").onclick=()=>openRowModal(null);
+$("rowModalClose").onclick=closeRowModal;
+$("rowModalCancel").onclick=closeRowModal;
+$("rowModal").onclick=e=>{ if(e.target.id==="rowModal") closeRowModal(); };
+$("rowModalSave").onclick=()=>{
+  const rec=readRowForm();
+  if(rec.impressions===0 && rec.hook_views===0 && rec.interactions===0 && rec.spend===0){
+    alert("Renseigne au moins des impressions, des vues hook ou des interactions."); return;
+  }
+  if(editingRowId){
+    const idx=STATE.rows.findIndex(x=>x.id===editingRowId);
+    if(idx<0){ alert("Ligne introuvable."); return; }
+    const h=pushHistory(`Modification d'un post — ${clientName()}`);
+    rec.id=editingRowId; STATE.rows[idx]=rec;
+    saveData(); closeRowModal(); renderData(); toast("Post modifié.", h);
+  }else{
+    const h=pushHistory(`Ajout manuel d'un post — ${clientName()}`);
+    rec.id=rec.platform+"|"+rec.type+"|"+rec.year+"|"+rec.month+"|manuel|"+uid();
+    STATE.rows.push(rec);
+    saveData(); closeRowModal(); renderData(); toast("Post ajouté.", h);
+  }
+};
+function deleteRow(id){
+  const r=STATE.rows.find(x=>x.id===id); if(!r) return;
+  if(!confirm("Supprimer ce post ("+r.creative+") ?")) return;
+  const h=pushHistory(`Suppression d'un post — ${clientName()}`);
+  STATE.rows=STATE.rows.filter(x=>x.id!==id);
+  saveData(); renderData(); toast("Post supprimé.", h);
+}
 
 /* ---------- settings (objectifs par client) ---------- */
 function renderSettings(){
