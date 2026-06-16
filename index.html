@@ -225,6 +225,7 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     <button class="iconbtn" id="delClient" title="Supprimer ce client">🗑</button>
   </div>
   <nav>
+    <button data-tab="agency">🏢 Vue agence</button>
     <button data-tab="batch" class="active">Import groupé</button>
     <button data-tab="import">Import simple</button>
     <button data-tab="dashboard">Reporting</button>
@@ -234,6 +235,18 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </header>
 
 <main>
+  <!-- ================= VUE AGENCE ================= -->
+  <section id="agency" class="tab">
+    <div class="card">
+      <div class="flex-between">
+        <div><h2 style="margin:0">🏢 Vue agence — tous les clients</h2>
+          <p class="note" style="margin:4px 0 0">Statut vs objectifs en un coup d'œil et projection d'atterrissage en fin d'année (au rythme actuel).</p></div>
+        <div class="field" style="margin:0"><label>Année</label><select id="agYear"></select></div>
+      </div>
+    </div>
+    <div id="agencyContent"></div>
+  </section>
+
   <!-- ================= IMPORT GROUPÉ ================= -->
   <section id="batch" class="tab active">
     <div class="card">
@@ -1028,7 +1041,7 @@ const intf=v=> v===null||v===undefined? "—" : Math.round(v).toLocaleString("fr
 const eur=v=> v===null||v===undefined? "—" : v.toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:0})+" €";
 
 /* ---------- navigation ---------- */
-const TABS=["batch","import","dashboard","data","settings"];
+const TABS=["agency","batch","import","dashboard","data","settings"];
 function activateTab(tab){
   if(!TABS.includes(tab)) tab="batch";
   document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===tab));
@@ -1037,11 +1050,95 @@ function activateTab(tab){
   else if(tab==="dashboard") renderDashboard();
   else if(tab==="data") renderData();
   else if(tab==="settings") renderSettings();
+  else if(tab==="agency") renderAgency();
 }
 document.querySelectorAll("nav button").forEach(b=>{
   b.onclick=()=>{ const t=b.dataset.tab; if(location.hash.slice(1)===t) activateTab(t); else location.hash=t; };
 });
 window.addEventListener("hashchange",()=>activateTab(location.hash.slice(1)));
+
+/* ---------- vue agence (tous les clients) ---------- */
+function renderAgency(){
+  const box=$("agencyContent"); if(!box) return;
+  const yr=Number($("agYear").value);
+  if(!STATE.clients.length){ box.innerHTML='<div class="card"><div class="empty">Aucun client enregistré.</div></div>'; return; }
+  const platKeys=["instagram","facebook","tiktok","linkedin","youtube"];
+  const now=new Date(); const curY=now.getFullYear(), curM=now.getMonth()+1;
+  const sumPlat=(objs,k)=>platKeys.reduce((s,p)=>s+((objs[p]&&objs[p][k])||0),0);
+  // statut global : score = (#bons - #mauvais) sur engagement/hook/impressions
+  const dot=cls=>`<span class="dot" style="background:${cls==='good'?'var(--green)':cls==='warn'?'var(--amber)':cls==='bad'?'var(--red)':'var(--line)'}"></span>`;
+
+  const data=STATE.clients.map(c=>{
+    ensureObjectives(c.id); const objs=STATE.objectives[c.id];
+    const yearRows=STATE.rows.filter(r=>r.client===c.id && r.year===yr);
+    const agg=aggregate(yearRows);
+    const months=yearRows.length?[...new Set(yearRows.map(r=>r.month))]:[];
+    const lastMonth=months.length?Math.max(...months):0;
+    // mois "écoulés" pour la projection : dernier mois avec données (année passée => 12)
+    const elapsed = yr<curY?12 : Math.max(lastMonth,1);
+    const factor = elapsed>0?12/elapsed:1;
+    const imprObj=objs.global.impressions||0;
+    const budget=sumPlat(objs,"media_budget");
+    const folGoal=sumPlat(objs,"followers_goal"), folTotal=sumPlat(objs,"followers_total");
+    const projImpr=agg.impressions*factor, projSpend=agg.spend*factor;
+    const imprProjPct=imprObj>0?projImpr/imprObj:null;
+    const engC=colorFor(agg.engagement_rate,objs.global.engagement);
+    const hookC=colorFor(agg.hook_rate,objs.global.hook);
+    const imprC=imprObj>0?(imprProjPct>=1?"good":imprProjPct>=.8?"warn":"bad"):"";
+    const statuses=[engC,hookC,imprC].filter(Boolean);
+    const score=statuses.filter(x=>x==="good").length - statuses.filter(x=>x==="bad").length;
+    const overall=!statuses.length?"":score>0?"good":score<0?"bad":"warn";
+    return {c,objs,yearRows,agg,lastMonth,elapsed,imprObj,budget,folGoal,folTotal,projImpr,projSpend,imprProjPct,engC,hookC,imprC,overall,hasData:yearRows.length>0};
+  });
+
+  const withData=data.filter(d=>d.hasData);
+  const onTrack=withData.filter(d=>d.imprC==="good"||(d.imprC===""&&d.overall==="good")).length;
+  const atRisk=withData.filter(d=>d.overall==="bad").length;
+  const totImpr=withData.reduce((s,d)=>s+d.agg.impressions,0);
+  const totSpend=withData.reduce((s,d)=>s+d.agg.spend,0);
+  const totBudget=withData.reduce((s,d)=>s+d.budget,0);
+
+  const ovLabel={good:"🟢 Dans les clous",warn:"🟠 À surveiller",bad:"🔴 Sous objectif","":"—"};
+  const land=d=>{ if(d.imprC==="") return '<span class="note">obj. non défini</span>';
+    const t=d.imprC==="good"?"✓ Sur la bonne voie":d.imprC==="warn"?"≈ Juste":"✗ En retard";
+    return `<b class="${d.imprC}">${t}</b><br><span class="note">proj. ${intf(d.projImpr)} / obj. ${intf(d.imprObj)} (${(d.imprProjPct*100).toFixed(0)}%)</span>`; };
+
+  const summary=`<div class="kpis" style="margin-bottom:16px">
+    <div class="kpi"><div class="l">Clients suivis</div><div class="v">${withData.length}<span style="font-size:13px;color:var(--muted)"> / ${STATE.clients.length}</span></div></div>
+    <div class="kpi"><div class="l">Sur la bonne voie</div><div class="v good">${onTrack}</div></div>
+    <div class="kpi"><div class="l">Sous objectif</div><div class="v bad">${atRisk}</div></div>
+    <div class="kpi"><div class="l">Impressions cumulées</div><div class="v" style="font-size:22px">${intf(totImpr)}</div></div>
+    <div class="kpi"><div class="l">Budget média consommé</div><div class="v" style="font-size:22px">${eur(totSpend)}${totBudget>0?`<span style="font-size:13px;color:var(--muted)"> / ${eur(totBudget)}</span>`:""}</div></div>
+  </div>`;
+
+  const rowsHtml=data.slice().sort((a,b)=>({good:0,warn:1,bad:2,"":3}[a.overall]-{good:0,warn:1,bad:2,"":3}[b.overall])||a.c.name.localeCompare(b.c.name)).map(d=>{
+    if(!d.hasData) return `<tr style="opacity:.55"><td><b>${escapeHtml(d.c.name)}</b></td><td colspan="7" class="note">Aucune donnée pour ${yr}.</td><td><button class="actbtn" data-go="${d.c.id}">Ouvrir →</button></td></tr>`;
+    const budgetPace=d.budget>0?d.projSpend/d.budget:null;
+    const folPct=d.folGoal>0?d.folTotal/d.folGoal:null;
+    return `<tr>
+      <td>${dot(d.overall)}<b>${escapeHtml(d.c.name)}</b><br><span class="note">${ovLabel[d.overall]} · données j→${MONTHS[d.lastMonth-1]}</span></td>
+      <td class="num ${d.engC}">${pct(d.agg.engagement_rate)}<br><span class="note">obj ${pct(d.objs.global.engagement)}</span></td>
+      <td class="num ${d.hookC}">${pct(d.agg.hook_rate)}<br><span class="note">obj ${pct(d.objs.global.hook)}</span></td>
+      <td class="num">${intf(d.agg.impressions)}<br><span class="note">${d.imprObj>0?(d.agg.impressions/d.imprObj*100).toFixed(0)+"% obj annuel":"—"}</span></td>
+      <td class="num">${land(d)}</td>
+      <td class="num">${d.budget>0?eur(d.agg.spend):"—"}<br><span class="note">${budgetPace!=null?"rythme "+(budgetPace*100).toFixed(0)+"% du budget":"budget non défini"}</span></td>
+      <td class="num">${folPct!=null?(folPct*100).toFixed(0)+"%":"—"}<br><span class="note">${d.folGoal>0?intf(d.folTotal)+" / "+intf(d.folGoal):"obj. non défini"}</span></td>
+      <td><button class="actbtn" data-go="${d.c.id}">Ouvrir →</button></td>
+    </tr>`;}).join("");
+
+  box.innerHTML=`<div class="card">${summary}
+    <div class="tscroll"><table><thead><tr>
+      <th>Client</th><th class="num">Engagement</th><th class="num">Hook rate</th>
+      <th class="num">Impr. cumulées</th><th class="num">Atterrissage fin ${yr}</th>
+      <th class="num">Budget média</th><th class="num">Abonnés</th><th></th>
+    </tr></thead><tbody>${rowsHtml}</tbody></table></div>
+    <p class="note" style="margin-top:12px">« Atterrissage » = projection des impressions en fin d'année au rythme actuel (cumul ÷ mois avec données × 12) comparée à l'objectif annuel. Clique « Ouvrir » pour le reporting détaillé d'un client.</p>
+  </div>`;
+  box.querySelectorAll("button[data-go]").forEach(b=>b.onclick=()=>{
+    switchClient(b.dataset.go);
+    if(location.hash.slice(1)==="dashboard") activateTab("dashboard"); else location.hash="dashboard";
+  });
+}
 
 /* ---------- gestion des clients ---------- */
 function renderClientSelect(){
@@ -1064,6 +1161,7 @@ function refreshAll(){
   else if(tab==="dashboard") renderDashboard();
   else if(tab==="data") renderData();
   else if(tab==="settings") renderSettings();
+  else if(tab==="agency") renderAgency();
 }
 $("clientSelect").onchange=e=>switchClient(e.target.value);
 $("batchClientSelect").onchange=e=>switchClient(e.target.value);
@@ -1107,6 +1205,8 @@ function fillYearMonth(){
   $("cmpYear").innerHTML=years.map(y=>`<option value="${y}">${y}</option>`).join(""); $("cmpYear").value=yNow-1;
   $("cmpFrom").innerHTML=monthOpts; $("cmpFrom").value=1;
   $("cmpTo").innerHTML=monthOpts;   $("cmpTo").value=12;
+  $("agYear").innerHTML=years.map(y=>`<option value="${y}">${y}</option>`).join(""); $("agYear").value=yNow;
+  $("agYear").onchange=renderAgency;
 }
 
 /* ---------- aide : quel fichier télécharger ---------- */
