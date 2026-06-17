@@ -238,6 +238,15 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 .pnb.g{border-left-color:#16a34a}.pnb.o{border-left-color:#d97706}.pnb.r{border-left-color:var(--pc)}
 .pnb h4{margin:0 0 6px;font-size:18px}.pnb p{margin:0;font-size:16px;white-space:pre-wrap;line-height:1.5;color:#333}
 .pctx{background:#fef2f2;border:1px solid #fee2e2;border-radius:12px;padding:16px 20px;font-size:17px;margin-bottom:18px}
+.ptable .ppv{background:var(--pc);color:#fff;border:0;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:11px;margin-right:8px;vertical-align:middle}
+.pvgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.pvcard{border:1px solid #e7eaf0;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.pvtop{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px}
+.pvname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pvplay{background:var(--pc);color:#fff;border:0;border-radius:10px;padding:16px;font-size:17px;font-weight:700;cursor:pointer}
+.pvplay:hover{filter:brightness(1.08)}
+.pvmeta{font-size:14px;color:#5b6577}
+@media(max-width:680px){ .pvgrid{grid-template-columns:1fr 1fr} }
 .present-dots{display:flex;gap:8px;padding:6px 0}
 .present-dots i{width:9px;height:9px;border-radius:50%;background:#39415a;cursor:pointer;transition:.15s}
 .present-dots i.on{background:#fff;width:22px;border-radius:5px}
@@ -615,7 +624,7 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 </div>
 
 <!-- ================= APERÇU VISUEL D'UN CONTENU ================= -->
-<div id="mediaModal" class="modal" style="display:none;z-index:130">
+<div id="mediaModal" class="modal" style="display:none;z-index:250">
   <div class="modal-box card" style="max-width:560px">
     <div class="flex-between" style="margin-bottom:10px">
       <h2 id="mediaTitle" style="margin:0;font-size:15px;max-width:80%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Visuel</h2>
@@ -2193,8 +2202,15 @@ function buildPresentation(){
     :`${intf(agg.impressions)} impressions sur la période · engagement ${pct(agg.engagement_rate)} (obj. ${pct(obj.engagement)}).`;
   const bigKpi=(label,val,sub,cls)=>`<div class="pk ${cls||''}"><div class="pk-l">${label}</div><div class="pk-v ${cls||''}">${val}</div><div class="pk-s">${sub}</div></div>`;
   const natRows=natGroups.slice().sort((a,b)=>b.impressions-a.impressions).map(g=>`<tr><td>${escapeHtml(g.name)}</td><td class="num">${intf(g.impressions)}</td><td class="num">${pct(g.hook_rate)}</td><td class="num">${pct(g.hold_rate)}</td><td class="num">${pct(g.engagement_rate)}</td></tr>`).join("");
+  const pvBtn=g=>(cleanUrl(g.url)||cleanUrl(g.media))?`<button class="ppv" data-prev="${escapeHtml(g.url||"")}" data-prevm="${escapeHtml(g.media||"")}" data-prevn="${escapeHtml(g.name||"")}" title="Voir la vidéo">▶</button> `:"";
   const topRows=tops.map(g=>{ const u=cleanUrl(g.url); const nm=u?`<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="color:var(--pc);text-decoration:none">${escapeHtml(g.name)} ↗</a>`:escapeHtml(g.name);
-    return `<tr><td><span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${nm}${g.influence?' <span style="color:#a855f7">★</span>':''}</td><td class="num">${intf(g.impressions)}</td><td class="num">${pct(g.hook_rate)}</td><td class="num">${pct(g.engagement_rate)}</td></tr>`;}).join("");
+    return `<tr><td>${pvBtn(g)}<span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${nm}${g.influence?' <span style="color:#a855f7">★</span>':''}</td><td class="num">${intf(g.impressions)}</td><td class="num">${pct(g.hook_rate)}</td><td class="num">${pct(g.engagement_rate)}</td></tr>`;}).join("");
+  // contenus jouables (vidéo/visuel) pour la slide galerie
+  const playable=tops.filter(g=>cleanUrl(g.url)||cleanUrl(g.media)).slice(0,6);
+  const vidCards=playable.map(g=>`<div class="pvcard">
+    <div class="pvtop"><span class="dot" style="background:${PLATFORMS[g.platform].color}"></span><span class="pvname" title="${escapeHtml(g.name)}">${escapeHtml(g.name)}</span>${g.influence?' <span style="color:#a855f7">★</span>':''}</div>
+    <button class="pvplay" data-prev="${escapeHtml(g.url||"")}" data-prevm="${escapeHtml(g.media||"")}" data-prevn="${escapeHtml(g.name||"")}">▶ Voir la vidéo</button>
+    <div class="pvmeta">${intf(g.impressions)} impressions · hook ${pct(g.hook_rate)}</div></div>`).join("");
 
   const S=[];
   // 1. couverture
@@ -2227,7 +2243,11 @@ function buildPresentation(){
     <div class="pbody"><table class="ptable"><thead><tr><th>Nature</th><th class="num">Impressions</th><th class="num">Hook</th><th class="num">Hold</th><th class="num">Engagement</th></tr></thead><tbody>${natRows}</tbody></table></div>${foot}</div>`);
   // 7. top contenus
   if(tops.length) S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Top contenus</h2>
-    <div class="pbody"><table class="ptable"><thead><tr><th>Contenu</th><th class="num">Impressions</th><th class="num">Hook</th><th class="num">Engagement</th></tr></thead><tbody>${topRows}</tbody></table></div>${foot}</div>`);
+    <div class="pbody"><table class="ptable"><thead><tr><th>Contenu</th><th class="num">Impressions</th><th class="num">Hook</th><th class="num">Engagement</th></tr></thead><tbody>${topRows}</tbody></table>
+    ${playable.length?`<p class="muted" style="margin-top:12px;font-size:14px">▶ Clique sur un contenu pour lancer la vidéo en plein écran.</p>`:""}</div>${foot}</div>`);
+  // 7bis. contenus en vidéo (galerie cliquable)
+  if(playable.length) S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Les contenus en vidéo</h2>
+    <div class="pbody"><div class="pvgrid">${vidCards}</div></div>${foot}</div>`);
   // 8. awards
   if(awHtml) S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Les awards de la période</h2><div class="pbody"><div class="pawgrid">${awHtml}</div></div>${foot}</div>`);
   // 9. analyse & recommandations
@@ -2261,7 +2281,7 @@ $("presPrev").onclick=()=>showPresSlide(presIdx-1);
 $("presNext").onclick=()=>showPresSlide(presIdx+1);
 $("presClose").onclick=closePresentation;
 $("presFull").onclick=()=>{ const el=$("present"); if(!document.fullscreenElement) el.requestFullscreen&&el.requestFullscreen().catch(()=>{}); else document.exitFullscreen&&document.exitFullscreen(); };
-$("presentStage").onclick=e=>{ if(e.target.closest("a")) return; showPresSlide(presIdx+1); };
+$("presentStage").onclick=e=>{ if(e.target.closest("a")||e.target.closest("button")||e.target.closest("[data-prev]")) return; showPresSlide(presIdx+1); };
 
 /* ---------- aperçu visuel d'un contenu (lecteur intégré) ---------- */
 function ifr(src,h){ return `<iframe src="${escapeHtml(src)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen scrolling="no" style="width:100%;height:${h};border:0;display:block;background:#000"></iframe>`; }
