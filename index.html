@@ -188,6 +188,11 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .evrow select{min-width:0;padding:6px 8px}
 .evdot{width:10px;height:10px;border-radius:3px;flex:0 0 auto;background:#64748b}
 .evdot.pos{background:#16a34a}.evdot.neg{background:#dc2626}.evdot.neutral{background:#64748b}
+.alertlist{display:flex;flex-direction:column;gap:8px}
+.alertrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
+.alertrow .aname{min-width:140px;flex:0 0 auto}
+.alertrow .achips{display:flex;gap:5px;flex-wrap:wrap;flex:1 1 auto}
+.alertrow .actbtn{flex:0 0 auto}
 .tag{font-size:11px;padding:2px 8px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
 .helpbox{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--accent);
   border-radius:10px;padding:14px 16px;margin:4px 0 16px;font-size:13px;line-height:1.6}
@@ -246,7 +251,10 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       <div class="flex-between">
         <div><h2 style="margin:0">🏢 Vue agence — tous les clients</h2>
           <p class="note" style="margin:4px 0 0">Statut vs objectifs en un coup d'œil et projection d'atterrissage en fin d'année (au rythme actuel).</p></div>
-        <div class="field" style="margin:0"><label>Année</label><select id="agYear"></select></div>
+        <div class="row" style="margin:0;align-items:flex-end">
+          <button class="btn sec" id="loadDemo" title="Remplit l'outil avec des clients fictifs pour une démonstration">🎬 Charger une démo</button>
+          <div class="field" style="margin:0"><label>Année</label><select id="agYear"></select></div>
+        </div>
       </div>
     </div>
     <div id="agencyContent"></div>
@@ -1174,7 +1182,30 @@ function renderAgency(){
     const statuses=[engC,hookC,imprC].filter(Boolean);
     const score=statuses.filter(x=>x==="good").length - statuses.filter(x=>x==="bad").length;
     const overall=!statuses.length?"":score>0?"good":score<0?"bad":"warn";
-    return {c,objs,yearRows,agg,lastMonth,elapsed,imprObj,budget,folGoal,folTotal,projImpr,projSpend,imprProjPct,engC,hookC,imprC,overall,hasData:yearRows.length>0};
+    // qualité des données
+    const q=[];
+    if(yearRows.length){
+      if(imprObj===0) q.push("objectif impressions non défini");
+      const present=new Set(yearRows.map(r=>r.month));
+      const gaps=[]; for(let m=1;m<=lastMonth;m++) if(!present.has(m)) gaps.push(MONTHS[m-1]);
+      if(gaps.length) q.push("mois manquants : "+gaps.join(", "));
+      const zeros=yearRows.filter(r=>!r.impressions).length;
+      if(zeros/yearRows.length>0.3) q.push(Math.round(zeros/yearRows.length*100)+"% de lignes à 0 impression");
+    }
+    // niveaux d'alerte
+    const upd=lastUpdate(c.id); const daysSince=upd?Math.floor((now-upd)/86400000):null;
+    const alerts=[];
+    if(yr===curY){
+      if(daysSince===null) alerts.push({sev:"high",msg:"Jamais mis à jour"});
+      else if(daysSince>7) alerts.push({sev:daysSince>14?"high":"med",msg:"Pas mis à jour depuis "+timeAgo(upd)});
+    }
+    if(!yearRows.length){ alerts.push({sev:"high",msg:"Aucune donnée "+yr}); }
+    else {
+      if(imprC==="bad") alerts.push({sev:"high",msg:"Objectif annuel non atteignable (proj. "+(imprProjPct*100).toFixed(0)+"%)"});
+      else if(overall==="bad") alerts.push({sev:"med",msg:"Plusieurs KPI sous objectif"});
+      if(q.length) alerts.push({sev:"med",msg:"À compléter — "+q.join(" · ")});
+    }
+    return {c,objs,yearRows,agg,lastMonth,elapsed,imprObj,budget,folGoal,folTotal,projImpr,projSpend,imprProjPct,engC,hookC,imprC,overall,upd,daysSince,alerts,hasData:yearRows.length>0};
   });
 
   const withData=data.filter(d=>d.hasData);
@@ -1183,6 +1214,22 @@ function renderAgency(){
   const totImpr=withData.reduce((s,d)=>s+d.agg.impressions,0);
   const totSpend=withData.reduce((s,d)=>s+d.agg.spend,0);
   const totBudget=withData.reduce((s,d)=>s+d.budget,0);
+
+  // ---- panneau d'alertes ----
+  const sevRank=d=>d.alerts.some(a=>a.sev==="high")?2:d.alerts.some(a=>a.sev==="med")?1:0;
+  const alertClients=data.filter(d=>d.alerts.length).sort((a,b)=>sevRank(b)-sevRank(a)||a.c.name.localeCompare(b.c.name));
+  const nbHigh=data.reduce((s,d)=>s+d.alerts.filter(a=>a.sev==="high").length,0);
+  const nbMed=data.reduce((s,d)=>s+d.alerts.filter(a=>a.sev==="med").length,0);
+  const aChip=a=>`<span class="tag" style="border-color:${a.sev==="high"?"var(--red)":"var(--amber)"};color:${a.sev==="high"?"var(--red)":"var(--amber)"}">${escapeHtml(a.msg)}</span>`;
+  const alertsPanel = alertClients.length? `<div class="card" style="border-left:4px solid ${nbHigh?"var(--red)":"var(--amber)"}">
+      <h2 style="margin:0 0 4px">🔔 Alertes — ${nbHigh} critique${nbHigh>1?"s":""} · ${nbMed} à surveiller</h2>
+      <p class="note" style="margin:0 0 12px">Objectif non atteignable, données à compléter, ou pas mis à jour depuis plus d'une semaine.</p>
+      <div class="alertlist">${alertClients.map(d=>`<div class="alertrow">
+        <span class="dot" style="background:${d.alerts.some(a=>a.sev==="high")?"var(--red)":"var(--amber)"}"></span>
+        <b class="aname">${escapeHtml(d.c.name)}</b>
+        <span class="achips">${d.alerts.map(aChip).join("")}</span>
+        <button class="actbtn" data-go="${d.c.id}">Ouvrir →</button></div>`).join("")}</div>
+    </div>` : `<div class="card" style="border-left:4px solid var(--green)"><h2 style="margin:0">✓ Aucune alerte</h2><p class="note" style="margin:4px 0 0">Tous les clients sont à jour et dans les clous pour ${yr}.</p></div>`;
 
   const ovLabel={good:"🟢 Dans les clous",warn:"🟠 À surveiller",bad:"🔴 Sous objectif","":"—"};
   const land=d=>{ if(d.imprC==="") return '<span class="note">obj. non défini</span>';
@@ -1209,14 +1256,15 @@ function renderAgency(){
       <td class="num">${land(d)}</td>
       <td class="num">${d.budget>0?eur(d.agg.spend):"—"}<br><span class="note">${budgetPace!=null?"rythme "+(budgetPace*100).toFixed(0)+"% du budget":"budget non défini"}</span></td>
       <td class="num">${folPct!=null?(folPct*100).toFixed(0)+"%":"—"}<br><span class="note">${d.folGoal>0?intf(d.folTotal)+" / "+intf(d.folGoal):"obj. non défini"}</span></td>
+      <td class="num"><span class="${d.daysSince!=null&&d.daysSince>7?"bad":""}">${timeAgo(d.upd)}</span></td>
       <td><button class="actbtn" data-go="${d.c.id}">Ouvrir →</button></td>
     </tr>`;}).join("");
 
-  box.innerHTML=`<div class="card">${summary}
+  box.innerHTML=`${alertsPanel}<div class="card">${summary}
     <div class="tscroll"><table><thead><tr>
       <th>Client</th><th class="num">Engagement</th><th class="num">Hook rate</th>
       <th class="num">Impr. cumulées</th><th class="num">Atterrissage fin ${yr}</th>
-      <th class="num">Budget média</th><th class="num">Abonnés</th><th></th>
+      <th class="num">Budget média</th><th class="num">Abonnés</th><th class="num">Dernière MAJ</th><th></th>
     </tr></thead><tbody>${rowsHtml}</tbody></table></div>
     <p class="note" style="margin-top:12px">« Atterrissage » = projection des impressions en fin d'année au rythme actuel (cumul ÷ mois avec données × 12) comparée à l'objectif annuel. Clique « Ouvrir » pour le reporting détaillé d'un client.</p>
   </div>`;
@@ -1224,6 +1272,66 @@ function renderAgency(){
     switchClient(b.dataset.go);
     if(location.hash.slice(1)==="dashboard") activateTab("dashboard"); else location.hash="dashboard";
   });
+  const ld=$("loadDemo"); if(ld) ld.onclick=loadDemoData;
+}
+
+/* ---------- données de démonstration (clients fictifs) ---------- */
+function loadDemoData(){
+  if((STATE.rows.length||STATE.clients.length>1) && !confirm("Charger les données de DÉMONSTRATION ?\n\n⚠ Cela REMPLACE toutes les données actuelles (clients, objectifs, analyses).\nÀ ne pas faire si tu as déjà saisi des données réelles — exporte-les d'abord en .json.")) return;
+  let s=20260617; const rnd=()=>{ s=(s*9301+49297)%233280; return s/233280; };
+  const ri=(a,b)=>Math.round(a+rnd()*(b-a));
+  const yr=2026, upTo=6, plats=["instagram","facebook","tiktok","linkedin"];
+  const fmts=["Reel recette","Conseil nutrition","Coulisses","UGC","Trend","Bon plan"];
+  const profiles=[
+    {name:"Bio'Délice", scale:1.5, eng:1.35, imprObj:3000000, budget:36000, stale:0, gaps:false, infl:true, months:upTo,
+      notes:{context:"Forte hausse en juin portée par l'activation Coupe du monde + 2 collabs créateurs.",works:"Les Reels recette explosent (hook > 55%).",watch:"Le hold rate Facebook décroche en mai.",reco:"Doubler la cadence de Reels recette en T3."},
+      events:[{fromM:6,toM:7,label:"Coupe du monde 2026",sentiment:"pos"}]},
+    {name:"Mareva", scale:0.55, eng:0.7, imprObj:5000000, budget:20000, stale:2, gaps:false, infl:false, months:upTo,
+      notes:{watch:"Volume insuffisant face à un objectif annuel ambitieux."}, events:[]},
+    {name:"Croq'Local", scale:1.1, eng:1.05, imprObj:2200000, budget:18000, stale:12, gaps:false, infl:true, months:upTo, notes:{}, events:[]},
+    {name:"Pom'Vert", scale:0.9, eng:0.95, imprObj:2000000, budget:15000, stale:4, gaps:true, infl:false, months:upTo,
+      notes:{}, events:[{fromM:4,toM:4,label:"Rupture de stock",sentiment:"neg"}]},
+    {name:"Le Fournil d'Émile", scale:1.3, eng:1.4, imprObj:1800000, budget:22000, stale:1, gaps:false, infl:true, months:upTo,
+      notes:{works:"L'UGC surperforme.",reco:"Lancer une série de recettes en stories."}, events:[{fromM:3,toM:4,label:"Lancement gamme bio",sentiment:"pos"}]},
+    {name:"Tendre Pré", scale:1.0, eng:1.0, imprObj:2500000, budget:25000, stale:6, gaps:false, infl:false, months:upTo, notes:{}, events:[]},
+    {name:"Saveurs du Marais", scale:1.2, eng:1.25, imprObj:2400000, budget:12000, stale:3, gaps:false, infl:true, months:upTo,
+      notes:{context:"Budget média volontairement dépassé suite à un test d'audience élargie concluant.",conflict:false}, events:[]},
+    {name:"Océalg", scale:0, eng:1, imprObj:1500000, budget:10000, stale:99, gaps:false, infl:false, months:0, notes:{}, events:[]},
+  ];
+  STATE.rows=[]; STATE.clients=[]; STATE.objectives={}; STATE.notes={}; STATE.events={}; STATE.history=[];
+  profiles.forEach((pr,ci)=>{
+    const id="demo"+ci; STATE.clients.push({id,name:pr.name, updatedAt:Date.now()-pr.stale*86400000});
+    const o=defaultObjectives(); o.global.impressions=pr.imprObj; o.global.engagement=0.025; o.global.hook=0.42; o.global.hold=0.09;
+    plats.forEach(p=>{ o[p].media_budget=Math.round(pr.budget/4); o[p].followers_goal=ri(30000,80000); o[p].followers_total=Math.round(o[p].followers_goal*(0.55+rnd()*0.4)); });
+    STATE.objectives[id]=o;
+    if(pr.notes&&Object.keys(pr.notes).length) STATE.notes[id]=Object.assign({works:"",watch:"",reco:"",context:"",conflict:false},pr.notes);
+    if(pr.events&&pr.events.length) STATE.events[id]=pr.events.map((e,ei)=>({id:"ev"+ci+ei,year:yr,fromM:e.fromM,toM:e.toM,label:e.label,sentiment:e.sentiment}));
+    for(let m=1;m<=pr.months;m++){
+      if(pr.gaps && (m===2||m===5)) continue;
+      plats.forEach(p=>{ const nPosts=p==="linkedin"?2:3;
+        for(let k=0;k<nPosts;k++){
+          const isOrg=(k===nPosts-1), isDark=(!isOrg&&k===0&&p!=="tiktok"), isAct=(m===6), isInf=(pr.infl&&k===0&&m%2===0&&p==="instagram");
+          const imp=Math.max(1,Math.round((15000+rnd()*70000)*pr.scale*(isAct?1.4:1)));
+          const hook=Math.round(imp*(0.34+rnd()*0.24)), hold=Math.round(hook*(0.08+rnd()*0.09)), inter=Math.round(imp*(0.015+rnd()*0.03)*pr.eng);
+          const spend=isOrg?0:ri(300,1800), fmt=isInf?"Influence":fmts[ri(0,fmts.length-1)];
+          const rec={client:id,platform:p,type:isOrg?"organic":"paid",year:yr,month:m,
+            campaign:(isAct?"Activation ":"Fil rouge ")+MONTHS[m-1], creative:(isInf?"Collab @créateur · ":"")+fmt+" "+MONTHS[m-1]+" #"+(k+1),
+            url:isInf?"instagram.com/reel/demo"+ci+m+k:"", nature:isAct?"activation":"filrouge", influence:isInf, darkpost:isDark,
+            impressions:imp,reach:Math.round(imp*0.7),spend, likes:Math.round(inter*0.8),comments:Math.round(inter*0.1),shares:Math.round(inter*0.07),saves:Math.round(inter*0.03),
+            followers:ri(20,400),profile_views:ri(100,2500),hook_views:hook,hold_views:hold,completions:Math.round(hold*0.6),watch_time:+(3+rnd()*7).toFixed(1),
+            _hookIn:null,_holdIn:null,_engIn:null,_cpeIn:null};
+          rec.interactions=rec.likes+rec.comments+rec.shares+rec.saves; rec.format=fmt;
+          Object.assign(rec,computeRates(p,rec)); rec.id=id+p+m+k; STATE.rows.push(rec);
+        }
+      });
+    }
+  });
+  if(!STATE.brand||!STATE.brand.name){ STATE.brand={name:"Tire-Fesses", color:"#3b5bfd"}; saveBrand(); applyBrand(); }
+  STATE.currentClient=STATE.clients[0].id;
+  saveData(); saveObj(); saveClients(); saveNotes(); saveEvents(); saveHist();
+  renderClientSelect(); $("agYear").value=String(yr);
+  if(location.hash.slice(1)==="agency") renderAgency(); else location.hash="agency";
+  toast(STATE.clients.length+" clients de démo chargés — explore la Vue agence puis « Ouvrir » un client.");
 }
 
 /* ---------- gestion des clients ---------- */
