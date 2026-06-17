@@ -504,6 +504,15 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
       <p class="note">⚠ Le code d'accès est une protection <b>légère</b> (site public) : il dissuade, mais n'empêche pas un utilisateur averti d'accéder aux données. Pour une vraie confidentialité, héberge le site en privé.</p>
     </div>
     <div class="card">
+      <h2>Méthode de calcul — sources Meta</h2>
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+        <input type="checkbox" id="reconcileToggle" style="width:18px;height:18px;min-width:0;margin:2px 0 0">
+        <span><b>Réconcilier Paid + Organique (prendre le plus gros chiffre)</b><br>
+        <span class="note">Quand un même contenu (même créa, plateforme et mois) est présent à la fois en <b>Paid (Ads Manager / BM)</b> et en <b>Organique (Meta Business Suite)</b>, l'outil prend le <b>plus grand chiffre</b> par indicateur au lieu d'additionner les deux — pour éviter le double comptage (Business Suite inclut déjà le paid). La dépense média est conservée. S'applique au reporting, à la vue agence et aux exports.</span></span>
+      </label>
+      <div style="margin-top:12px"><button class="btn" id="saveReconcile">Enregistrer</button></div>
+    </div>
+    <div class="card">
       <h2>Objectifs annuels — <span id="objClientName"></span></h2>
       <p class="note">Objectifs propres à ce client. %= Engagement/Hook/Hold ; Impressions & Budget média = totaux annuels visés ; Abonnés = total actuel et objectif (par plateforme).</p>
       <div style="overflow-x:auto"><table><thead><tr><th>Plateforme</th><th class="num">Engagement %</th><th class="num">Impressions</th><th class="num">Hook %</th><th class="num">Hold %</th><th class="num">Budget média €</th><th class="num">Abonnés actuels</th><th class="num">Objectif abonnés</th></tr></thead>
@@ -1292,7 +1301,7 @@ function renderAgency(){
   const data=STATE.clients.map(c=>{
     ensureObjectives(c.id); const objs=STATE.objectives[c.id];
     const yearRows=STATE.rows.filter(r=>r.client===c.id && r.year===yr);
-    const agg=aggregate(yearRows);
+    const agg=aggregate(reconcile(yearRows));
     const months=yearRows.length?[...new Set(yearRows.map(r=>r.month))]:[];
     const lastMonth=months.length?Math.max(...months):0;
     // mois "écoulés" pour la projection : dernier mois avec données (année passée => 12)
@@ -1720,13 +1729,40 @@ function applyNatureInfluence(rows){
   return rows.filter(r=> (n==="all"||(r.nature||"filrouge")===n)
     && (inf==="all" || (inf==="only"?!!r.influence:!r.influence)) );
 }
+// Réconciliation Paid/Organique : pour un même contenu présent en paid (BM) ET organique
+// (Business Suite), prend le plus grand chiffre par indicateur au lieu d'additionner.
+function reconcileOn(){ return !!(STATE.brand&&STATE.brand.reconcile); }
+function reconcileGroup(grp){
+  const paid=grp.filter(r=>(r.type||"paid")==="paid"), org=grp.filter(r=>(r.type||"paid")==="organic");
+  if(!paid.length || !org.length) return grp;   // rien à réconcilier
+  const sumB=arr=>{ const a={impressions:0,reach:0,spend:0,likes:0,comments:0,shares:0,saves:0,followers:0,profile_views:0,hook_views:0,hold_views:0,completions:0,interactions:0,wt:0,wtw:0};
+    arr.forEach(r=>{ for(const k of ["impressions","reach","spend","likes","comments","shares","saves","followers","profile_views","hook_views","hold_views","completions","interactions"]) a[k]+=(r[k]||0);
+      if(r.watch_time>0){ a.wt+=r.watch_time*(r.impressions||1); a.wtw+=(r.impressions||1); } });
+    a.watch_time=a.wtw>0?a.wt/a.wtw:0; return a; };
+  const P=sumB(paid), O=sumB(org), mx=k=>Math.max(P[k],O[k]);
+  const base=(O.impressions>=P.impressions?org:paid)[0];
+  const rec=Object.assign({},base,{ _hookIn:null,_holdIn:null,_engIn:null,_cpeIn:null, id:base.id+"|rec", _reconciled:true,
+    impressions:mx("impressions"),reach:mx("reach"),spend:Math.max(P.spend,O.spend),
+    likes:mx("likes"),comments:mx("comments"),shares:mx("shares"),saves:mx("saves"),
+    followers:mx("followers"),profile_views:mx("profile_views"),
+    hook_views:mx("hook_views"),hold_views:mx("hold_views"),completions:mx("completions"),
+    interactions:mx("interactions"),watch_time:Math.max(P.watch_time,O.watch_time) });
+  Object.assign(rec, computeRates(rec.platform, rec));
+  return [rec];
+}
+function reconcile(rows){
+  if(!reconcileOn()) return rows;
+  const groups={};
+  rows.forEach(r=>{ const k=r.platform+"|"+r.year+"|"+r.month+"|"+normalizeHeader(r.creative||""); (groups[k]=groups[k]||[]).push(r); });
+  const out=[]; Object.values(groups).forEach(g=>reconcileGroup(g).forEach(x=>out.push(x))); return out;
+}
 function filteredRows(){
   const y=Number($("fltYear").value), p=$("fltPlatform").value, t=$("fltType").value;
   let from=Number($("fltFrom").value), to=Number($("fltTo").value);
   if(from>to){ const tmp=from; from=to; to=tmp; }
-  return applyNatureInfluence(STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===y
+  return reconcile(applyNatureInfluence(STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===y
     && r.month>=from && r.month<=to
-    && (p==="all"||r.platform===p) && (t==="all"||(r.type||"paid")===t)));
+    && (p==="all"||r.platform===p) && (t==="all"||(r.type||"paid")===t))));
 }
 // lignes de la période de comparaison choisie (prev / yoy / custom), mêmes filtres plateforme/type/nature/influence
 function comparisonRows(){
@@ -1740,9 +1776,9 @@ function comparisonRows(){
     const L=to-from+1; cy=y; ct=from-1; cf=Math.max(1,from-L);
     if(ct<1){ cy=y-1; ct=12; cf=Math.max(1,13-L); }
   }
-  const rows=applyNatureInfluence(STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===cy
+  const rows=reconcile(applyNatureInfluence(STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===cy
     && r.month>=cf && r.month<=ct
-    && (p==="all"||r.platform===p) && (t==="all"||(r.type||"paid")===t)));
+    && (p==="all"||r.platform===p) && (t==="all"||(r.type||"paid")===t))));
   return {rows, label:MONTHS[cf-1]+"–"+MONTHS[ct-1]+" "+cy};
 }
 
@@ -1772,7 +1808,7 @@ function renderDashboard(){
   const yr=Number($("fltYear").value), tflt=$("fltType").value;
   const cumRows=STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===yr
     && (platform==="all"||r.platform===platform) && (tflt==="all"||(r.type||"paid")===tflt));
-  const aggCum=aggregate(cumRows);
+  const aggCum=aggregate(reconcile(cumRows));
   const platKeys=["instagram","facebook","tiktok","linkedin","youtube"];
   const sumObj=k=> platKeys.reduce((s,p)=>s+(objFor(p)[k]||0),0);
   const budget = platform==="all"? sumObj("media_budget") : obj.media_budget;
@@ -1841,7 +1877,7 @@ function renderDashboard(){
         </div>
       </div>
       <div class="tile b12" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
-        <div style="font-size:15px"><b>${escapeHtml(clientName())}</b> · ${platLbl}</div>
+        <div style="font-size:15px"><b>${escapeHtml(clientName())}</b> · ${platLbl}${reconcileOn()?' · <span class="tag" style="border-color:var(--accent);color:var(--accent)" title="Pour un contenu présent en Paid et Organique, le plus gros chiffre est retenu (anti-doublon BM / Business Suite)">⚖ paid/orga réconcilié</span>':''}</div>
         <div style="color:var(--muted);text-align:right">${periodLbl}${cmpLabel?`<br><span style="font-size:11px">▲▼ comparé à ${cmpLabel}</span>`:""}</div></div>
       ${budgetWarn}
       ${cmpBlock}
@@ -2020,7 +2056,7 @@ function exportBilan(){
   // cumul année (mêmes filtres plateforme/type) + objectif annuel
   const cumRows=STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===yr
     && (platform==="all"||r.platform===platform) && (tflt==="all"||(r.type||"paid")===tflt));
-  const aggCum=aggregate(cumRows);
+  const aggCum=aggregate(reconcile(cumRows));
   const platKeys=["instagram","facebook","tiktok","linkedin","youtube"];
   const sumObj=k=>platKeys.reduce((s,p)=>s+(objFor(p)[k]||0),0);
   const budget=platform==="all"?sumObj("media_budget"):obj.media_budget;
@@ -2171,7 +2207,7 @@ function buildPresentation(){
   const b=STATE.brand||{}, PC=(b.color&&/^#/.test(b.color))?b.color:"#3b5bfd", brandName=b.name||"Reporting social", nt=notesFor();
   const cmp=comparisonRows(), aggPrev=(cmp&&cmp.rows.length)?aggregate(cmp.rows):null, cmpLabel=cmp?cmp.label:null;
   const cumRows=STATE.rows.filter(r=>r.client===STATE.currentClient&&r.year===yr&&(platform==="all"||r.platform===platform)&&(tflt==="all"||(r.type||"paid")===tflt));
-  const aggCum=aggregate(cumRows);
+  const aggCum=aggregate(reconcile(cumRows));
   const platKeys=["instagram","facebook","tiktok","linkedin","youtube"], sumObj=k=>platKeys.reduce((s,p)=>s+(objFor(p)[k]||0),0);
   const budget=platform==="all"?sumObj("media_budget"):obj.media_budget, budgetPct=budget>0?aggCum.spend/budget:null;
   const foot=`<div class="pfoot"><span>${escapeHtml(brandName)} — ${escapeHtml(clientName())}</span><span>${platLbl} · ${periodLbl}</span></div>`;
@@ -2722,7 +2758,13 @@ function applyBrand(){
 function renderBrandSettings(){
   const b=STATE.brand||{};
   $("brandName").value=b.name||""; $("brandColor").value=b.color||"#3b5bfd"; $("brandPass").value=b.password||"";
+  $("reconcileToggle").checked=!!b.reconcile;
 }
+$("saveReconcile").onclick=()=>{
+  STATE.brand.reconcile=$("reconcileToggle").checked; saveBrand();
+  toast(STATE.brand.reconcile?"Réconciliation Paid/Organique activée (plus gros chiffre).":"Réconciliation désactivée (somme).");
+  refreshAll();
+};
 $("saveBrand").onclick=()=>{
   STATE.brand.name=$("brandName").value.trim();
   STATE.brand.color=$("brandColor").value;
