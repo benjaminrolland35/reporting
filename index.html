@@ -188,6 +188,9 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .evrow select{min-width:0;padding:6px 8px}
 .evdot{width:10px;height:10px;border-radius:3px;flex:0 0 auto;background:#64748b}
 .evdot.pos{background:#16a34a}.evdot.neg{background:#dc2626}.evdot.neutral{background:#64748b}
+tr.month-sep td{background:var(--panel2);border-top:2px solid var(--line);border-bottom:1px solid var(--line);padding:8px 10px;position:sticky;top:0}
+tr.month-sep .ms-title{font-weight:700;font-size:13px}
+tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 .alertlist{display:flex;flex-direction:column;gap:8px}
 .alertrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
 .alertrow .aname{min-width:140px;flex:0 0 auto}
@@ -1395,6 +1398,10 @@ function loadDemoData(){
   if((STATE.rows.length||STATE.clients.length>1) && !confirm("Charger les données de DÉMONSTRATION ?\n\n⚠ Cela REMPLACE toutes les données actuelles (clients, objectifs, analyses).\nÀ ne pas faire si tu as déjà saisi des données réelles — exporte-les d'abord en .json.")) return;
   let s=20260617; const rnd=()=>{ s=(s*9301+49297)%233280; return s/233280; };
   const ri=(a,b)=>Math.round(a+rnd()*(b-a));
+  // vidéos de substitution (fichiers MP4 publics) pour l'aperçu ▶ des contenus de démo
+  const SAMPLE_VIDS=["BigBuckBunny","ElephantsDream","ForBiggerBlazes","ForBiggerEscapes","ForBiggerFun","ForBiggerJoyrides","ForBiggerMeltdowns","Sintel","SubaruOutbackOnStreetAndDirt","TearsOfSteel","VolkswagenGTIReview","WeAreGoingOnBullrun","WhatCarCanYouGetForAGrand"]
+    .map(n=>"https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/"+n+".mp4");
+  let vIdx=0;
   const yr=2026, upTo=6, plats=["instagram","facebook","tiktok","linkedin"];
   const fmts=["Reel recette","Conseil nutrition","Coulisses","UGC","Trend","Bon plan"];
   const profiles=[
@@ -1431,7 +1438,7 @@ function loadDemoData(){
           const spend=isOrg?0:ri(300,1800), fmt=isInf?"Influence":fmts[ri(0,fmts.length-1)];
           const rec={client:id,platform:p,type:isOrg?"organic":"paid",year:yr,month:m,
             campaign:(isAct?"Activation ":"Fil rouge ")+MONTHS[m-1], creative:(isInf?"Collab @créateur · ":"")+fmt+" "+MONTHS[m-1]+" #"+(k+1),
-            url:isInf?"instagram.com/reel/demo"+ci+m+k:"", nature:isAct?"activation":"filrouge", influence:isInf, darkpost:isDark,
+            url:isInf?"instagram.com/reel/demo"+ci+m+k:"", media:SAMPLE_VIDS[(vIdx++)%SAMPLE_VIDS.length], nature:isAct?"activation":"filrouge", influence:isInf, darkpost:isDark,
             impressions:imp,reach:Math.round(imp*0.7),spend, likes:Math.round(inter*0.8),comments:Math.round(inter*0.1),shares:Math.round(inter*0.07),saves:Math.round(inter*0.03),
             followers:ri(20,400),profile_views:ri(100,2500),hook_views:hook,hold_views:hold,completions:Math.round(hold*0.6),watch_time:+(3+rnd()*7).toFixed(1),
             _hookIn:null,_holdIn:null,_engIn:null,_cpeIn:null};
@@ -2352,20 +2359,29 @@ function renderData(){
   const natTag=n=>{ const N=NATURES[n]||NATURES.filrouge; return `<span class="tag" style="border-color:${N.color};color:${N.color}">${N.label}</span>`; };
   const inflTag=v=> v?`<span class="tag" style="border-color:#a855f7;color:#a855f7">★ Influence</span>`:'<span style="color:var(--line)">—</span>';
   const upd=lastUpdate(STATE.currentClient);
-  box.innerHTML=`<p class="note">${clientRows.length} lignes pour <b>${escapeHtml(clientName())}</b> · dernière mise à jour <b>${timeAgo(upd)}</b>${upd?" ("+new Date(upd).toLocaleDateString("fr-FR")+")":""}. (300 plus récentes affichées) — ✏️ corriger · 🗑 supprimer.</p>
-    <div class="tscroll"><table><thead><tr><th>Plateforme</th><th>Type</th><th>Nature</th><th>Mois</th><th>Campagne</th><th>Créa</th><th>Format</th><th>Influence</th>
-    <th class="num">Impr.</th><th class="num">Hook</th><th class="num">Hold</th><th></th></tr></thead>
-    <tbody>${recent.map(r=>`<tr>
+  // regroupement par mois (année + mois), du plus récent au plus ancien
+  const byMonth={};
+  recent.forEach(r=>{ (byMonth[r.year+"-"+String(r.month).padStart(2,"0")]=byMonth[r.year+"-"+String(r.month).padStart(2,"0")]||[]).push(r); });
+  const monthKeys=Object.keys(byMonth).sort().reverse();
+  const rowHtml=r=>`<tr>
       <td><span class="dot" style="background:${PLATFORMS[r.platform].color}"></span>${PLATFORMS[r.platform].label}</td>
       <td><span class="tag">${(r.type||"paid")==="paid"?"Paid":"Organique"}</span>${(r.type||"paid")==="paid"&&r.darkpost?'<span class="tag" style="border-color:#475569;color:#475569;margin-left:3px">dark</span>':''}</td>
       <td>${natTag(r.nature)}</td>
-      <td>${MONTHS[r.month-1]} ${r.year}</td>
       <td class="nm" title="${escapeHtml(r.campaign)}">${escapeHtml(r.campaign)}</td><td class="nm" title="${escapeHtml(r.creative)}">${cleanUrl(r.url)?`<a href="${escapeHtml(cleanUrl(r.url))}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">${escapeHtml(r.creative)} ↗</a>`:escapeHtml(r.creative)}</td>
       <td>${escapeHtml(r.format||"Autre")}</td>
       <td>${inflTag(r.influence)}</td>
       <td class="num">${intf(r.impressions)}</td><td class="num">${pct(r.hook_rate)}</td><td class="num">${pct(r.hold_rate)}</td>
       <td style="white-space:nowrap">${(cleanUrl(r.url)||cleanUrl(r.media))?`<button class="actbtn" data-prev="${escapeHtml(r.url||"")}" data-prevm="${escapeHtml(r.media||"")}" data-prevn="${escapeHtml(r.creative||"")}" title="Voir le visuel">▶</button> `:""}<button class="actbtn" data-edit="${r.id}" title="Modifier">✏️</button> <button class="actbtn del" data-del="${r.id}" title="Supprimer">🗑</button></td>
-    </tr>`).join("")}</tbody></table></div>`;
+    </tr>`;
+  const body=monthKeys.map(k=>{ const grp=byMonth[k], [y,mo]=k.split("-").map(Number);
+    const tot=grp.reduce((s,r)=>s+r.impressions,0), nOrg=grp.filter(r=>(r.type||"paid")==="organic").length, nDark=grp.filter(r=>r.darkpost).length;
+    return `<tr class="month-sep"><td colspan="11"><span class="ms-title">${MONTHS[mo-1]} ${y}</span>
+      <span class="ms-meta">${grp.length} publication${grp.length>1?"s":""} · ${intf(tot)} impressions · ${nOrg} organique${nOrg>1?"s":""} · ${nDark} dark post${nDark>1?"s":""}</span></td></tr>`
+      + grp.map(rowHtml).join(""); }).join("");
+  box.innerHTML=`<p class="note">${clientRows.length} lignes pour <b>${escapeHtml(clientName())}</b> · dernière mise à jour <b>${timeAgo(upd)}</b>${upd?" ("+new Date(upd).toLocaleDateString("fr-FR")+")":""}. Regroupées par mois (300 plus récentes) — ▶ visuel · ✏️ corriger · 🗑 supprimer.</p>
+    <div class="tscroll"><table><thead><tr><th>Plateforme</th><th>Type</th><th>Nature</th><th>Campagne</th><th>Créa</th><th>Format</th><th>Influence</th>
+    <th class="num">Impr.</th><th class="num">Hook</th><th class="num">Hold</th><th></th></tr></thead>
+    <tbody>${body}</tbody></table></div>`;
   box.querySelectorAll("button[data-edit]").forEach(b=>b.onclick=()=>openRowModal(b.dataset.edit));
   box.querySelectorAll("button[data-del]").forEach(b=>b.onclick=()=>deleteRow(b.dataset.del));
 }
