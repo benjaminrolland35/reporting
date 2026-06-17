@@ -235,18 +235,18 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     <button class="iconbtn" id="delClient" title="Supprimer ce client">🗑</button>
   </div>
   <nav>
-    <button data-tab="agency">🏢 Vue agence</button>
-    <button data-tab="batch" class="active">Import groupé</button>
-    <button data-tab="import">Import simple</button>
+    <button data-tab="agency" class="active">Vue agence</button>
     <button data-tab="dashboard">Reporting</button>
     <button data-tab="data">Données</button>
+    <button data-tab="batch">Import groupé</button>
+    <button data-tab="import">Import simple</button>
     <button data-tab="settings">Objectifs</button>
   </nav>
 </header>
 
 <main>
   <!-- ================= VUE AGENCE ================= -->
-  <section id="agency" class="tab">
+  <section id="agency" class="tab active">
     <div class="card">
       <div class="flex-between">
         <div><h2 style="margin:0">🏢 Vue agence — tous les clients</h2>
@@ -261,7 +261,7 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   </section>
 
   <!-- ================= IMPORT GROUPÉ ================= -->
-  <section id="batch" class="tab active">
+  <section id="batch" class="tab">
     <div class="card">
       <h2 style="margin:0 0 12px">Import groupé — tous les fichiers sur une page</h2>
       <div class="row">
@@ -1137,7 +1137,7 @@ const eur=v=> v===null||v===undefined? "—" : v.toLocaleString("fr-FR",{minimum
 /* ---------- navigation ---------- */
 const TABS=["agency","batch","import","dashboard","data","settings"];
 function activateTab(tab){
-  if(!TABS.includes(tab)) tab="batch";
+  if(!TABS.includes(tab)) tab="agency";
   document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===tab));
   document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.id===tab));
   if(tab==="batch") renderBatch();
@@ -1156,6 +1156,22 @@ function renderAgency(){
   const box=$("agencyContent"); if(!box) return;
   const yr=Number($("agYear").value);
   if(!STATE.clients.length){ box.innerHTML='<div class="card"><div class="empty">Aucun client enregistré.</div></div>'; return; }
+  // onboarding : aucune donnée nulle part -> écran d'accueil au lieu d'alertes alarmantes
+  if(!STATE.rows.length){
+    box.innerHTML=`<div class="card" style="text-align:center;padding:48px 24px">
+      <div style="font-size:34px;margin-bottom:6px">📊</div>
+      <h2 style="margin:0 0 6px">Bienvenue dans le reporting social</h2>
+      <p class="note" style="max-width:560px;margin:0 auto 20px">Pour découvrir l'outil, charge un jeu de clients fictifs. Pour démarrer pour de vrai, crée un client puis importe tes exports (Meta, TikTok, LinkedIn, YouTube) ou saisis tes données à la main.</p>
+      <div class="row" style="justify-content:center;margin:0">
+        <button class="btn" id="obDemo">🎬 Charger une démo</button>
+        <button class="btn sec" id="obImport">Importer des données</button>
+        <button class="btn sec" id="obManual">Saisir un post à la main</button>
+      </div></div>`;
+    $("obDemo").onclick=loadDemoData;
+    $("obImport").onclick=()=>location.hash="batch";
+    $("obManual").onclick=()=>{ location.hash="data"; setTimeout(()=>openRowModal(null),60); };
+    return;
+  }
   const platKeys=["instagram","facebook","tiktok","linkedin","youtube"];
   const now=new Date(); const curY=now.getFullYear(), curM=now.getMonth()+1;
   const sumPlat=(objs,k)=>platKeys.reduce((s,p)=>s+((objs[p]&&objs[p][k])||0),0);
@@ -2399,7 +2415,7 @@ function checkGate(){
 
 /* ---------- init ---------- */
 load(); applyBrand(); checkGate(); renderClientSelect(); fillYearMonth(); renderExportHelp(); renderHistory();
-activateTab(location.hash.slice(1)||"batch");   // ouvre l'onglet indiqué dans l'URL
+activateTab(location.hash.slice(1)||"agency");   // ouvre l'onglet indiqué dans l'URL
 </script>
 </body>
 </html>
