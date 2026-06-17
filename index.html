@@ -191,6 +191,20 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 tr.month-sep td{background:var(--panel2);border-top:2px solid var(--line);border-bottom:1px solid var(--line);padding:8px 10px;position:sticky;top:0}
 tr.month-sep .ms-title{font-weight:700;font-size:13px}
 tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
+/* comparaison côte à côte (split 2 colonnes) */
+.cmp2col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cmp2{border:1px solid var(--line);border-radius:12px;padding:14px}
+.cmp2.cur{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.cmp2-hd{font-weight:700;font-size:14px;margin-bottom:12px}
+.cmp-kgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px}
+.cmp-k{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;display:flex;flex-direction:column}
+.cmp-k .l{font-size:10px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:600}
+.cmp-k .v{font-size:19px;font-weight:700;letter-spacing:-.01em;margin-top:2px}
+.cmp-k .v.good{color:var(--green)}.cmp-k .v.warn{color:var(--amber)}.cmp-k .v.bad{color:var(--red)}
+.cmp-k .s{font-size:10px;color:var(--muted)}
+.cmp-d{font-size:11px;font-weight:600;margin-left:6px;vertical-align:middle}
+.cmp-d.good{color:var(--green)}.cmp-d.bad{color:var(--red)}
+@media(max-width:760px){.cmp2col{grid-template-columns:1fr}.cmp-kgrid{grid-template-columns:1fr 1fr}}
 .alertlist{display:flex;flex-direction:column;gap:8px}
 .alertrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
 .alertrow .aname{min-width:140px;flex:0 0 auto}
@@ -1837,21 +1851,25 @@ function renderDashboard(){
   // comparaison côte à côte (si une période de référence est active)
   let cmpBlock="";
   if(aggPrev){
-    const fmtv=(v,f)=> v==null?"—": f==="pct"?pct(v): f==="eur"?eur(v): f==="cpm"?(v.toFixed(2)+" €"): intf(v);
-    const drow=(label,cur,ref,f,rate)=>{ let d="—";
-      if(ref!=null&&cur!=null&&ref!==0&&isFinite(cur)){ const diff=rate?(cur-ref):(cur-ref)/ref, up=diff>=0;
-        d=`<span class="${up?'good':'bad'}">${up?'▲':'▼'} ${rate?((up?'+':'')+(diff*100).toFixed(1)+' pts'):((up?'+':'')+(diff*100).toFixed(0)+'%')}</span>`; }
-      return `<tr><td>${label}</td><td class="num"><b>${fmtv(cur,f)}</b></td><td class="num" style="color:var(--muted)">${fmtv(ref,f)}</td><td class="num">${d}</td></tr>`; };
+    // colonne KPI pour une période ; ref=valeurs de l'autre période pour les deltas (sur la colonne A)
+    const dvs=(cur,ref,rate)=>{ if(ref==null||cur==null||ref===0||!isFinite(cur)) return "";
+      const diff=rate?(cur-ref):(cur-ref)/ref, up=diff>=0;
+      return `<span class="cmp-d ${up?'good':'bad'}">${up?'▲':'▼'} ${rate?((up?'+':'')+(diff*100).toFixed(1)+' pts'):((up?'+':'')+(diff*100).toFixed(0)+'%')}</span>`; };
+    const cmpCol=(a,ref)=>{ const k=(l,v,sub,cls,d)=>`<div class="cmp-k"><span class="l">${l}</span><span class="v ${cls||''}">${v}${d||""}</span><span class="s">${sub||""}</span></div>`;
+      return `<div class="cmp-kgrid">
+        ${k("Engagement",pct(a.engagement_rate),"obj "+pct(obj.engagement),colorFor(a.engagement_rate,obj.engagement),ref?dvs(a.engagement_rate,ref.engagement_rate,true):"")}
+        ${k("Hook rate",pct(a.hook_rate),"obj "+pct(obj.hook),colorFor(a.hook_rate,obj.hook),ref?dvs(a.hook_rate,ref.hook_rate,true):"")}
+        ${k("Hold rate",pct(a.hold_rate),"obj "+pct(obj.hold),colorFor(a.hold_rate,obj.hold),ref?dvs(a.hold_rate,ref.hold_rate,true):"")}
+        ${k("Impressions",intf(a.impressions),"",  "",ref?dvs(a.impressions,ref.impressions,false):"")}
+        ${k("Dépense média",eur(a.spend),"","",ref?dvs(a.spend,ref.spend,false):"")}
+        ${k("CPM",a.cpm!=null?a.cpm.toFixed(2)+" €":"—","","",ref?dvs(a.cpm,ref.cpm,false):"")}
+      </div>`; };
     cmpBlock=`<div class="tile b12"><h3>↔ Comparaison côte à côte</h3>
-      <div class="tscroll"><table><thead><tr><th>Indicateur</th><th class="num">${periodLbl}</th><th class="num">${cmpLabel}</th><th class="num">Évolution</th></tr></thead><tbody>
-      ${drow("Engagement",agg.engagement_rate,aggPrev.engagement_rate,"pct",true)}
-      ${drow("Hook rate",agg.hook_rate,aggPrev.hook_rate,"pct",true)}
-      ${drow("Hold rate",agg.hold_rate,aggPrev.hold_rate,"pct",true)}
-      ${drow("Impressions",agg.impressions,aggPrev.impressions,"int",false)}
-      ${drow("Dépense média",agg.spend,aggPrev.spend,"eur",false)}
-      ${drow("CPM",agg.cpm,aggPrev.cpm,"cpm",false)}
-      ${drow("Abonnés nets",agg.followers,aggPrev.followers,"int",false)}
-      </tbody></table></div></div>`;
+      <div class="cmp2col">
+        <div class="cmp2 cur"><div class="cmp2-hd">${periodLbl} <span class="note">· période en cours</span></div>${cmpCol(agg,aggPrev)}<div class="chart-sm"><canvas id="chCmpA"></canvas></div></div>
+        <div class="cmp2 ref"><div class="cmp2-hd">${cmpLabel} <span class="note">· référence</span></div>${cmpCol(aggPrev,null)}<div class="chart-sm"><canvas id="chCmpB"></canvas></div></div>
+      </div>
+      <p class="note" style="margin-top:8px">Les ▲▼ sur la colonne de gauche indiquent l'évolution par rapport à la période de référence.</p></div>`;
   }
   // avertissement budget dépassé (consommé > alloué)
   const budgetWarn = (budget>0 && aggCum.spend>budget)
@@ -1954,6 +1972,20 @@ function renderDashboard(){
   };
   donut("chDoImp","wrapDoImp",plats.filter(g=>g.impressions>0).map(g=>({label:PLATFORMS[g.platform].label,value:g.impressions,color:PLATFORMS[g.platform].color})));
   donut("chDoSp","wrapDoSp",plats.filter(g=>g.spend>0).map(g=>({label:PLATFORMS[g.platform].label,value:g.spend,color:PLATFORMS[g.platform].color})));
+
+  // mini-courbes hook/hold des deux périodes comparées (split côte à côte)
+  if(aggPrev && $("chCmpA")){
+    const miniHookHold=(cid,srs)=>{ if(!$(cid)) return;
+      charts.push(new Chart($(cid),{type:"line",
+        data:{labels:srs.map(s=>s.label),datasets:[
+          {label:"Hook",data:srs.map(s=>s.hook_rate!=null?+(s.hook_rate*100).toFixed(1):null),borderColor:"#3b5bfd",backgroundColor:"#3b5bfd1f",tension:.35,spanGaps:true,fill:true,pointRadius:2},
+          {label:"Hold",data:srs.map(s=>s.hold_rate!=null?+(s.hold_rate*100).toFixed(1):null),borderColor:"#7c5cff",backgroundColor:"#7c5cff1f",tension:.35,spanGaps:true,fill:true,pointRadius:2}]},
+        options:{maintainAspectRatio:false,plugins:{legend:{labels:{color:tickc,boxWidth:10,font:{size:10}}}},
+          scales:{y:{ticks:{color:tickc,font:{size:10},callback:v=>v+"%"},grid:{color:gridc}},x:{ticks:{color:tickc,font:{size:10}},grid:{display:false}}}}})); };
+    let af=Number($("fltFrom").value), at=Number($("fltTo").value); if(af>at){const x=af;af=at;at=x;}
+    miniHookHold("chCmpA", monthlySeries(rows).filter(s=>s.month>=af&&s.month<=at));
+    miniHookHold("chCmpB", monthlySeries(cmp.rows));
+  }
 
   renderAggTable("fmtTable", groupBy(rows,"format"), "Format", obj);
   renderAwards("awards", rows);
