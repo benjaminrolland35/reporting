@@ -261,6 +261,26 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 .pvplay:hover{filter:brightness(1.08)}
 .pvmeta{font-size:14px;color:#5b6577}
 @media(max-width:680px){ .pvgrid{grid-template-columns:1fr 1fr} }
+.pagenda{font-size:24px;line-height:2;color:#1a2233;padding-left:30px;margin:0;columns:2;column-gap:50px}
+.pagenda li{font-weight:600}
+.pdonuts{display:grid;grid-template-columns:1fr 1fr;gap:24px;width:100%;align-items:center}
+.pdonut{text-align:center}.pdonut img{max-height:52vh}
+.pdt{font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5b6577;margin-bottom:8px}
+.pcmp2{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.pcmp-col{border:1px solid #e7eaf0;border-radius:14px;padding:20px 24px}
+.pcmp-col.cur{border-color:var(--pc);box-shadow:0 0 0 2px var(--pc) inset}
+.pcmp-hd{font-size:20px;font-weight:700;margin-bottom:14px}
+.pcmp-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #eef1f6;font-size:18px}
+.pcmp-row:last-child{border-bottom:none}
+.pcmp-l{color:#5b6577}.pcmp-v{font-weight:700}
+.pcmp-row .pos{color:#16a34a}.pcmp-row .neg{color:#dc2626}
+/* notes présentateur */
+.present-notes{display:none;width:min(1180px,94vw);background:#1a2030;border:1px solid #39415a;border-radius:12px;margin-top:10px;padding:10px}
+.present.notes-on .present-notes{display:block}
+.present.notes-on .present-stage{padding-bottom:1vh}
+.present-notes textarea{width:100%;min-height:90px;background:#0f1320;border:1px solid #39415a;border-radius:8px;color:#e8ecf5;padding:12px;font:inherit;font-size:15px;resize:vertical}
+.pn-hint{color:#8a93a6;font-size:11px;margin-top:6px}
+.pbtn.active{background:var(--accent,#3b5bfd);border-color:var(--accent,#3b5bfd)}
 .present-dots{display:flex;gap:8px;padding:6px 0}
 .present-dots i{width:9px;height:9px;border-radius:50%;background:#39415a;cursor:pointer;transition:.15s}
 .present-dots i.on{background:#fff;width:22px;border-radius:5px}
@@ -661,12 +681,15 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 <!-- ================= MODE PRÉSENTATION (diaporama visio) ================= -->
 <div id="present" class="present" style="display:none">
   <div class="present-stage" id="presentStage"></div>
+  <div class="present-notes"><textarea id="presNoteArea" placeholder="Tes notes…"></textarea>
+    <div class="pn-hint">Notes présentateur — visibles seulement quand le panneau est ouvert (touche N). Pense à le fermer avant de partager ton écran.</div></div>
   <div class="present-dots" id="presDots"></div>
   <div class="present-bar">
     <button class="pbtn" id="presPrev" title="Précédent (←)">←</button>
     <span id="presCounter">1 / 1</span>
     <button class="pbtn" id="presNext" title="Suivant (→)">→</button>
     <span style="flex:1"></span>
+    <button class="pbtn" id="presNotesBtn" title="Notes présentateur (N)">📝 Notes</button>
     <button class="pbtn" id="presFull" title="Plein écran">⛶</button>
     <button class="pbtn" id="presClose" title="Quitter (Échap)">✕</button>
   </div>
@@ -2279,71 +2302,139 @@ function buildPresentation(){
     <div class="pvtop"><span class="dot" style="background:${PLATFORMS[g.platform].color}"></span><span class="pvname" title="${escapeHtml(g.name)}">${escapeHtml(g.name)}</span>${g.influence?' <span style="color:#a855f7">★</span>':''}</div>
     <button class="pvplay" data-prev="${escapeHtml(g.url||"")}" data-prevm="${escapeHtml(g.media||"")}" data-prevn="${escapeHtml(g.name||"")}">▶ Voir la vidéo</button>
     <div class="pvmeta">${intf(g.impressions)} impressions · hook ${pct(g.hook_rate)}</div></div>`).join("");
+  // donuts plateforme (images) + communauté + budget
+  const plats=groupBy(rows,"platform");
+  const donutImg=pairs=>pairs.length?chartToImg("doughnut",{labels:pairs.map(p=>p.label),datasets:[{data:pairs.map(p=>p.value),backgroundColor:pairs.map(p=>p.color),borderColor:"#fff",borderWidth:2}]},
+    {cutout:"56%",plugins:{legend:{position:"bottom",labels:{color:tickc,boxWidth:14,font:{size:14}}}}},460,400):"";
+  const imgDoImp=donutImg(plats.filter(g=>g.impressions>0).map(g=>({label:PLATFORMS[g.platform].label,value:g.impressions,color:PLATFORMS[g.platform].color})));
+  const imgDoSp =donutImg(plats.filter(g=>g.spend>0).map(g=>({label:PLATFORMS[g.platform].label,value:g.spend,color:PLATFORMS[g.platform].color})));
+  const folTotal=platform==="all"?sumObj("followers_total"):obj.followers_total;
+  const folGoal =platform==="all"?sumObj("followers_goal"):obj.followers_goal;
+  const folPct=folGoal>0?folTotal/folGoal:null;
+  // colonne KPI comparaison (slide)
+  const pcmpCol=(a,ref)=>{ const dv=(cur,r,rate)=>{ if(r==null||cur==null||r===0||!isFinite(cur))return ""; const diff=rate?(cur-r):(cur-r)/r,up=diff>=0;
+      return ` <span class="${up?'pos':'neg'}" style="font-size:15px">${up?'▲':'▼'} ${rate?((up?'+':'')+(diff*100).toFixed(1)+' pts'):((up?'+':'')+(diff*100).toFixed(0)+'%')}</span>`; };
+    const row=(l,v,d)=>`<div class="pcmp-row"><span class="pcmp-l">${l}</span><span class="pcmp-v">${v}${d||""}</span></div>`;
+    return `${row("Engagement",pct(a.engagement_rate),ref?dv(a.engagement_rate,ref.engagement_rate,true):"")}
+      ${row("Hook rate",pct(a.hook_rate),ref?dv(a.hook_rate,ref.hook_rate,true):"")}
+      ${row("Hold rate",pct(a.hold_rate),ref?dv(a.hold_rate,ref.hold_rate,true):"")}
+      ${row("Impressions",intf(a.impressions),ref?dv(a.impressions,ref.impressions,false):"")}
+      ${row("Dépense média",eur(a.spend),ref?dv(a.spend,ref.spend,false):"")}`; };
 
-  const S=[];
-  // 1. couverture
-  S.push(`<div class="pslide pcover" style="--pc:${PC}">
+  const S=[]; const add=(key,title,html,auto)=>S.push({key,title,html,auto:auto||""});
+  // couverture
+  add("cover","", `<div class="pslide pcover" style="--pc:${PC}">
     ${b.logo?`<img class="plogo" src="${b.logo}">`:`<div class="pbrand">${escapeHtml(brandName)}</div>`}
     <div class="peyebrow">Bilan social media</div>
     <h1 class="ptitle">${escapeHtml(clientName())}</h1>
     <div class="prule"></div>
-    <div class="pmeta">${periodLbl} · ${platLbl}</div></div>`);
-  // 2. chiffres clés
-  S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Les chiffres clés</h2>
+    <div class="pmeta">${periodLbl} · ${platLbl}</div></div>`, `Introduis le bilan ${clientName()} pour ${periodLbl}.`);
+  // chiffres clés
+  add("kpi","Les chiffres clés", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Les chiffres clés</h2>
     <div class="pbody"><div class="pkgrid">
       ${bigKpi("Engagement",pct(agg.engagement_rate),"Objectif "+pct(obj.engagement)+dl(agg.engagement_rate,aggPrev&&aggPrev.engagement_rate,true),ce)}
       ${bigKpi("Hook rate",pct(agg.hook_rate),"Objectif "+pct(obj.hook)+dl(agg.hook_rate,aggPrev&&aggPrev.hook_rate,true),chk)}
       ${bigKpi("Hold rate",pct(agg.hold_rate),"Objectif "+pct(obj.hold)+dl(agg.hold_rate,aggPrev&&aggPrev.hold_rate,true),co)}
       ${bigKpi("Impressions",intf(agg.impressions),"Cumul année "+intf(aggCum.impressions)+dl(agg.impressions,aggPrev&&aggPrev.impressions,false),"")}
-    </div><div class="pverdict">${verdict}</div></div>${foot}</div>`);
-  // 3. contexte (si présent)
-  if((nt.context&&nt.context.trim())||nt.conflict){
-    S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Contexte de la période</h2>
+    </div><div class="pverdict">${verdict}</div></div>${foot}</div>`,
+    `Engagement ${pct(agg.engagement_rate)} (obj ${pct(obj.engagement)}, ${ce==="good"?"atteint":"sous objectif"}) · Hook ${pct(agg.hook_rate)} · Hold ${pct(agg.hold_rate)} · ${intf(agg.impressions)} impressions.`);
+  // contexte
+  if((nt.context&&nt.context.trim())||nt.conflict)
+    add("context","Contexte de la période", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Contexte de la période</h2>
       <div class="pbody">${nt.conflict?`<div class="pctx"><b>⚠ Point de vigilance / conflit potentiel</b></div>`:""}
-        <p style="font-size:22px;line-height:1.5">${escapeHtml(nt.context||"—")}</p></div>${foot}</div>`);
-  }
-  // 4. évolution hook/hold
-  S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Évolution — Hook &amp; Hold rate</h2><div class="pbody" style="justify-content:center"><img class="pchart" src="${imgRates}"></div>${foot}</div>`);
-  // 5. impressions & dépense
-  S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Impressions &amp; dépense média</h2><div class="pbody" style="justify-content:center"><img class="pchart" src="${imgVol}"></div>${foot}</div>`);
-  // 6. fil rouge vs activation
-  S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Fil rouge vs Activation</h2>
-    <div class="pbody"><table class="ptable"><thead><tr><th>Nature</th><th class="num">Impressions</th><th class="num">Hook</th><th class="num">Hold</th><th class="num">Engagement</th></tr></thead><tbody>${natRows}</tbody></table></div>${foot}</div>`);
-  // 7. top contenus
-  if(tops.length) S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Top contenus</h2>
+        <p style="font-size:22px;line-height:1.5">${escapeHtml(nt.context||"—")}</p></div>${foot}</div>`, nt.context||"Explique le contexte de la période.");
+  // évolution
+  add("evolution","Évolution — Hook & Hold", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Évolution — Hook &amp; Hold rate</h2><div class="pbody" style="justify-content:center"><img class="pchart" src="${imgRates}"></div>${foot}</div>`,
+    `Commente la tendance hook/hold${bands.length?" ; signale l'événement "+bands.map(e=>e.label).join(", "):""}.`);
+  // impressions & dépense
+  add("impressions","Impressions & dépense", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Impressions &amp; dépense média</h2><div class="pbody" style="justify-content:center"><img class="pchart" src="${imgVol}"></div>${foot}</div>`,
+    `${intf(agg.impressions)} impressions pour ${eur(agg.spend)} de dépense (CPM ${agg.cpm!=null?agg.cpm.toFixed(2)+" €":"—"}).`);
+  // comparaison (si active)
+  if(aggPrev) add("comparison","Comparaison "+cmpLabel, `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Comparaison de période</h2>
+    <div class="pbody"><div class="pcmp2">
+      <div class="pcmp-col cur"><div class="pcmp-hd">${periodLbl}</div>${pcmpCol(agg,aggPrev)}</div>
+      <div class="pcmp-col"><div class="pcmp-hd">${cmpLabel}</div>${pcmpCol(aggPrev,null)}</div>
+    </div></div>${foot}</div>`, `Compare à ${cmpLabel} : impressions ${agg.impressions>=aggPrev.impressions?"en hausse":"en baisse"}, engagement ${agg.engagement_rate>=aggPrev.engagement_rate?"stable/hausse":"baisse"}.`);
+  // répartition par plateforme
+  if(imgDoImp||imgDoSp) add("platforms","Répartition par plateforme", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Répartition par plateforme</h2>
+    <div class="pbody"><div class="pdonuts">
+      ${imgDoImp?`<div class="pdonut"><div class="pdt">Impressions</div><img src="${imgDoImp}"></div>`:""}
+      ${imgDoSp?`<div class="pdonut"><div class="pdt">Dépense média</div><img src="${imgDoSp}"></div>`:""}
+    </div></div>${foot}</div>`, "Quelle plateforme porte le plus d'impressions et de budget.");
+  // fil rouge vs activation
+  add("nature","Fil rouge vs Activation", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Fil rouge vs Activation</h2>
+    <div class="pbody"><table class="ptable"><thead><tr><th>Nature</th><th class="num">Impressions</th><th class="num">Hook</th><th class="num">Hold</th><th class="num">Engagement</th></tr></thead><tbody>${natRows}</tbody></table></div>${foot}</div>`,
+    "Équilibre du dispositif fil rouge / temps forts.");
+  // top contenus
+  if(tops.length) add("top","Top contenus", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Top contenus</h2>
     <div class="pbody"><table class="ptable"><thead><tr><th>Contenu</th><th class="num">Impressions</th><th class="num">Hook</th><th class="num">Engagement</th></tr></thead><tbody>${topRows}</tbody></table>
-    ${playable.length?`<p class="muted" style="margin-top:12px;font-size:14px">▶ Clique sur un contenu pour lancer la vidéo en plein écran.</p>`:""}</div>${foot}</div>`);
-  // 7bis. contenus en vidéo (galerie cliquable)
-  if(playable.length) S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Les contenus en vidéo</h2>
-    <div class="pbody"><div class="pvgrid">${vidCards}</div></div>${foot}</div>`);
-  // 8. awards
-  if(awHtml) S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Les awards de la période</h2><div class="pbody"><div class="pawgrid">${awHtml}</div></div>${foot}</div>`);
-  // 9. analyse & recommandations
+    ${playable.length?`<p class="muted" style="margin-top:12px;font-size:14px">▶ Clique sur un contenu pour lancer la vidéo en plein écran.</p>`:""}</div>${foot}</div>`,
+    `Meilleur contenu : ${tops[0]?tops[0].name:"—"}.`);
+  // contenus en vidéo
+  if(playable.length) add("videos","Les contenus en vidéo", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Les contenus en vidéo</h2>
+    <div class="pbody"><div class="pvgrid">${vidCards}</div></div>${foot}</div>`, "Lance 1 à 2 vidéos marquantes pour le client.");
+  // awards
+  if(awHtml) add("awards","Les awards", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Les awards de la période</h2><div class="pbody"><div class="pawgrid">${awHtml}</div></div>${foot}</div>`,
+    "Mets en avant les contenus qui ont le mieux performé.");
+  // communauté
+  add("community","Communauté", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Communauté</h2>
+    <div class="pbody"><div class="pkgrid">
+      ${bigKpi("Croissance abonnés",(agg.followers>=0?"+":"")+intf(agg.followers),folGoal>0?intf(folTotal)+" / obj "+intf(folGoal)+" ("+(folPct*100).toFixed(0)+"%)":"total non saisi","")}
+      ${bigKpi("Visites de profil",intf(agg.profile_views),"Sur la période","")}
+      ${bigKpi("Reach cumulé",intf(agg.reach),"Couverture de la période","")}
+      ${bigKpi("Engagements",intf(agg.interactions),"Interactions totales","")}
+    </div></div>${foot}</div>`, `Croissance abonnés ${(agg.followers>=0?"+":"")+intf(agg.followers)}${folGoal>0?", "+(folPct*100).toFixed(0)+"% de l'objectif":""}.`);
+  // budget
+  if(budget>0||aggCum.spend>0){ const over=budget>0&&aggCum.spend>budget;
+    add("budget","Budget média", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Budget média</h2>
+      <div class="pbody"><div class="pkgrid">
+        ${bigKpi("Consommé (année)",eur(aggCum.spend),budget>0?(budgetPct*100).toFixed(0)+"% du budget "+eur(budget):"budget non défini",over?"bad":budget>0&&budgetPct>=.8?"warn":"good")}
+        ${bigKpi("CPM moyen",agg.cpm!=null?agg.cpm.toFixed(2)+" €":"—","Coût pour 1 000 impressions","")}
+        ${bigKpi("CPE moyen",agg.cpe!=null?agg.cpe.toFixed(2)+" €":"—","Coût par engagement","")}
+      </div>${over?`<div class="pctx" style="margin-top:18px"><b>⚠ Budget dépassé de ${eur(aggCum.spend-budget)}</b> (${(budgetPct*100).toFixed(0)} % du budget annuel).</div>`:""}</div>${foot}</div>`,
+      `${eur(aggCum.spend)} consommés${budget>0?" sur "+eur(budget)+" ("+(budgetPct*100).toFixed(0)+"%)":""}${over?" — budget dépassé":""}.`);
+  }
+  // analyse & recommandations
   if((nt.works||"").trim()||(nt.watch||"").trim()||(nt.reco||"").trim())
-    S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Analyse &amp; recommandations</h2>
+    add("reco","Analyse & recommandations", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Analyse &amp; recommandations</h2>
       <div class="pbody"><div class="pnote-blocks">
         <div class="pnb g"><h4>🟢 Ce qui fonctionne</h4><p>${escapeHtml(nt.works||"—")}</p></div>
         <div class="pnb o"><h4>🟠 À surveiller</h4><p>${escapeHtml(nt.watch||"—")}</p></div>
         <div class="pnb r"><h4>🎯 Recommandations</h4><p>${escapeHtml(nt.reco||"—")}</p></div>
-      </div></div>${foot}</div>`);
-  // 10. merci
-  S.push(`<div class="pslide pcover" style="--pc:${PC}">${b.logo?`<img class="plogo" src="${b.logo}">`:""}<div class="peyebrow">Merci</div><h1 class="ptitle" style="font-size:56px">Des questions ?</h1><div class="pmeta">${escapeHtml(brandName)} · ${escapeHtml(clientName())}</div></div>`);
+      </div></div>${foot}</div>`, nt.reco||"Déroule les recommandations et prochaines actions.");
+  // merci
+  add("thanks","", `<div class="pslide pcover" style="--pc:${PC}">${b.logo?`<img class="plogo" src="${b.logo}">`:""}<div class="peyebrow">Merci</div><h1 class="ptitle" style="font-size:56px">Des questions ?</h1><div class="pmeta">${escapeHtml(brandName)} · ${escapeHtml(clientName())}</div></div>`, "Ouvre la discussion / questions du client.");
+  // sommaire (inséré après la couverture)
+  const agendaItems=S.filter(s=>s.title).map(s=>s.title);
+  S.splice(1,0,{key:"agenda",title:"",auto:"Annonce le plan de la présentation.",
+    html:`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Sommaire</h2><div class="pbody"><ol class="pagenda">${agendaItems.map(t=>`<li>${t}</li>`).join("")}</ol></div>${foot}</div>`});
   presSlides=S;
   return true;
 }
+function presNotesStore(){ const n=notesFor(); if(!n.pres) n.pres={}; return n.pres; }
 function showPresSlide(i){
   presIdx=Math.max(0,Math.min(presSlides.length-1,i));
-  $("presentStage").innerHTML=presSlides[presIdx];
+  const sl=presSlides[presIdx];
+  $("presentStage").innerHTML=sl.html;
   $("presCounter").textContent=(presIdx+1)+" / "+presSlides.length;
   $("presDots").innerHTML=presSlides.map((_,k)=>`<i class="${k===presIdx?'on':''}" data-k="${k}"></i>`).join("");
   $("presDots").querySelectorAll("i").forEach(d=>d.onclick=()=>showPresSlide(Number(d.dataset.k)));
+  // notes présentateur
+  const ta=$("presNoteArea");
+  ta.value=presNotesStore()[sl.key]||""; ta.placeholder=sl.auto?("💡 "+sl.auto):"Tes notes pour cette slide…";
+  ta.oninput=()=>{ presNotesStore()[sl.key]=ta.value; saveNotes(); };
 }
+function togglePresNotes(force){ const on=force!==undefined?force:!$("present").classList.contains("notes-on");
+  $("present").classList.toggle("notes-on",on); $("presNotesBtn").classList.toggle("active",on); }
 function openPresentation(){ if(!buildPresentation()) return; $("present").style.display="flex"; showPresSlide(0); document.addEventListener("keydown",presKey); }
 function closePresentation(){ $("present").style.display="none"; document.removeEventListener("keydown",presKey);
   if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); }
-function presKey(e){ if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ e.preventDefault(); showPresSlide(presIdx+1); }
+function presKey(e){ if(e.target&&e.target.tagName==="TEXTAREA") { if(e.key==="Escape"){e.target.blur();} return; }
+  if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ e.preventDefault(); showPresSlide(presIdx+1); }
   else if(e.key==="ArrowLeft"||e.key==="PageUp"){ e.preventDefault(); showPresSlide(presIdx-1); }
+  else if(e.key==="n"||e.key==="N"){ togglePresNotes(); }
   else if(e.key==="Escape"){ closePresentation(); } }
+$("presNotesBtn").onclick=()=>togglePresNotes();
 $("presentBtn").onclick=openPresentation;
 $("presPrev").onclick=()=>showPresSlide(presIdx-1);
 $("presNext").onclick=()=>showPresSlide(presIdx+1);
