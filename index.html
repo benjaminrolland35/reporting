@@ -6,6 +6,7 @@
 <title>Reporting Social Annuel — Meta · TikTok · LinkedIn · YouTube</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 :root{
   --bg:#f6f7f9; --panel:#ffffff; --panel2:#f3f5f9; --line:#e7eaf0;
@@ -251,6 +252,8 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 .pnb{border-left:5px solid var(--pc);background:#fafbfd;border-radius:0 10px 10px 0;padding:14px 20px}
 .pnb.g{border-left-color:#16a34a}.pnb.o{border-left-color:#d97706}.pnb.r{border-left-color:var(--pc)}
 .pnb h4{margin:0 0 6px;font-size:18px}.pnb p{margin:0;font-size:16px;white-space:pre-wrap;line-height:1.5;color:#333}
+.pnb textarea.preco{width:100%;border:1px dashed #cfd6e2;border-radius:8px;background:#fff;color:#1a2233;font:inherit;font-size:16px;line-height:1.45;padding:9px 11px;resize:vertical;min-height:54px}
+.pnb textarea.preco:focus{outline:none;border-color:var(--pc);border-style:solid}
 .pctx{background:#fef2f2;border:1px solid #fee2e2;border-radius:12px;padding:16px 20px;font-size:17px;margin-bottom:18px}
 .ptable .ppv{background:var(--pc);color:#fff;border:0;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:11px;margin-right:8px;vertical-align:middle}
 .pvgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
@@ -544,6 +547,10 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
         <span><b>Réconcilier Paid + Organique (prendre le plus gros chiffre)</b><br>
         <span class="note">Quand un même contenu (même créa, plateforme et mois) est présent à la fois en <b>Paid (Ads Manager / BM)</b> et en <b>Organique (Meta Business Suite)</b>, l'outil prend le <b>plus grand chiffre</b> par indicateur au lieu d'additionner les deux — pour éviter le double comptage (Business Suite inclut déjà le paid). La dépense média est conservée. S'applique au reporting, à la vue agence et aux exports.</span></span>
       </label>
+      <div class="row" style="align-items:flex-end;margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
+        <div class="field"><label>EMV — valeur média (€ pour 1 000 impressions)</label><input type="number" id="emvCpmInput" min="0" step="1" placeholder="10" style="width:120px"></div>
+        <div class="field" style="flex:1 1 240px"><span class="note">Sert à valoriser l'<b>influence</b> : EMV = impressions ÷ 1 000 × cette valeur. Comparée au coût créateur, elle donne le ROI (« pour 1 € versé, X € de valeur média gagnée »).</span></div>
+      </div>
       <div style="margin-top:12px"><button class="btn" id="saveReconcile">Enregistrer</button></div>
     </div>
     <div class="card">
@@ -599,6 +606,7 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
       <div class="field" style="flex:1 1 auto"><label>&nbsp;</label>
         <label style="display:flex;flex-direction:row;align-items:center;gap:8px;color:var(--txt);font-weight:500;cursor:pointer;padding:9px 0">
           <input type="checkbox" id="rf_influence" style="width:18px;height:18px;min-width:0;margin:0"> Contenu influence / créateur</label></div>
+      <div class="field"><label>Coût créateur € (influence)</label><input type="number" id="rf_creator_cost" min="0" step="1" placeholder="0"></div>
     </div>
     <div class="row" style="margin-top:-4px">
       <div class="field" style="flex:1 1 auto"><label>Diffusion</label>
@@ -690,6 +698,7 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
     <button class="pbtn" id="presNext" title="Suivant (→)">→</button>
     <span style="flex:1"></span>
     <button class="pbtn" id="presNotesBtn" title="Notes présentateur (N)">📝 Notes</button>
+    <button class="pbtn" id="presSaveBtn" title="Enregistrer cette slide en image">💾 Slide</button>
     <button class="pbtn" id="presFull" title="Plein écran">⛶</button>
     <button class="pbtn" id="presClose" title="Quitter (Échap)">✕</button>
   </div>
@@ -720,6 +729,7 @@ const FIELDS = [
   {key:"media",      label:"Visuel (vidéo/image URL)", req:false},
   {key:"nature",     label:"Nature (fil rouge / activation)", req:false},
   {key:"influence",  label:"Influence (oui/non)", req:false},
+  {key:"creator_cost", label:"Coût créateur € (influence)", req:false},
   {key:"darkpost",   label:"Dark post (hors feed, oui/non)", req:false},
   {key:"date",       label:"Date (optionnel)",    req:false},
   {key:"impressions",label:"Impressions",         req:true},
@@ -750,6 +760,7 @@ const META_ALIASES = {
   media:["media","visuel","video","video url","thumbnail","thumbnail url","creative url","asset url","miniature","image url"],
   nature:["nature","type de contenu","fil rouge / activation","categorie","programme"],
   influence:["influence","influenceur","createur","creator","collab","partenariat"],
+  creator_cost:["cout createur","creator cost","cachet","budget influence","cout influence","fee","cout createur €"],
   darkpost:["dark post","darkpost","hors feed","dark","unpublished","non publie","publication non publiee"],
   date:["heure de publication","day","jour","reporting starts","debut des rapports","date"],
   impressions:["impressions","vues","views"],
@@ -1036,6 +1047,7 @@ function normalizeRows(rawRows, mapping, platform, type, year, fallbackMonth){
     rec.influence = (infV!==undefined && String(infV).trim()!=="") ? parseBool(infV) : detectInfluence(rec.campaign+" "+rec.creative);
     const dpV=get("darkpost");
     rec.darkpost = (dpV!==undefined && String(dpV).trim()!=="") ? parseBool(dpV) : (rec.type==="paid");
+    rec.creator_cost = toNumber(get("creator_cost"));
     // interactions = colonne explicite si présente, sinon somme (j'aime + comm. + partages + enreg.)
     const explicitInter=toNumber(get("interactions"));
     rec.interactions = explicitInter>0 ? explicitInter : (rec.likes+rec.comments+rec.shares+rec.saves);
@@ -1056,13 +1068,14 @@ function normalizeRows(rawRows, mapping, platform, type, year, fallbackMonth){
 // Agrège un ensemble de lignes : somme des briques + taux recalculés (jamais une moyenne de taux)
 function aggregate(rows){
   const a={impressions:0,reach:0,spend:0,interactions:0,hook_views:0,hold_views:0,completions:0,
-    followers:0,profile_views:0,likes:0,comments:0,shares:0,saves:0,count:rows.length};
+    followers:0,profile_views:0,likes:0,comments:0,shares:0,saves:0,creator_cost:0,count:rows.length};
   let wtSum=0, wtImpr=0;
   for(const r of rows){
     a.impressions+=r.impressions; a.reach+=r.reach; a.spend+=r.spend; a.interactions+=(r.interactions||0);
     a.hook_views+=r.hook_views; a.hold_views+=r.hold_views; a.completions+=r.completions;
     a.followers+=(r.followers||0); a.profile_views+=(r.profile_views||0);
     a.likes+=(r.likes||0); a.comments+=(r.comments||0); a.shares+=(r.shares||0); a.saves+=(r.saves||0);
+    a.creator_cost+=(r.creator_cost||0);
     if(r.watch_time>0){ wtSum+=r.watch_time*(r.impressions||1); wtImpr+=(r.impressions||1); }
   }
   a.watch_time = wtImpr>0 ? wtSum/wtImpr : null;   // durée moy. pondérée par impressions
@@ -1199,6 +1212,7 @@ function load(){
     if(r.influence===undefined){ r.influence=detectInfluence((r.campaign||"")+" "+(r.creative||"")); migrated=true; }
     if(r.url===undefined){ r.url=""; migrated=true; }
     if(r.media===undefined){ r.media=""; migrated=true; }
+    if(r.creator_cost===undefined){ r.creator_cost=0; migrated=true; }
     // dark post = contenu Paid hors feed ; défaut : Paid => dark post (corrigeable)
     if(r.darkpost===undefined){ r.darkpost=(r.type||"paid")==="paid"; migrated=true; }
   }
@@ -1495,7 +1509,7 @@ function loadDemoData(){
           const spend=isOrg?0:ri(300,1800), fmt=isInf?"Influence":fmts[ri(0,fmts.length-1)];
           const rec={client:id,platform:p,type:isOrg?"organic":"paid",year:yr,month:m,
             campaign:(isAct?"Activation ":"Fil rouge ")+MONTHS[m-1], creative:(isInf?"Collab @créateur · ":"")+fmt+" "+MONTHS[m-1]+" #"+(k+1),
-            url:isInf?"instagram.com/reel/demo"+ci+m+k:"", media:SAMPLE_VIDS[(vIdx++)%SAMPLE_VIDS.length], nature:isAct?"activation":"filrouge", influence:isInf, darkpost:isDark,
+            url:isInf?"instagram.com/reel/demo"+ci+m+k:"", media:SAMPLE_VIDS[(vIdx++)%SAMPLE_VIDS.length], nature:isAct?"activation":"filrouge", influence:isInf, creator_cost:isInf?ri(800,2500):0, darkpost:isDark,
             impressions:imp,reach:Math.round(imp*0.7),spend, likes:Math.round(inter*0.8),comments:Math.round(inter*0.1),shares:Math.round(inter*0.07),saves:Math.round(inter*0.03),
             followers:ri(20,400),profile_views:ri(100,2500),hook_views:hook,hold_views:hold,completions:Math.round(hold*0.6),watch_time:+(3+rnd()*7).toFixed(1),
             _hookIn:null,_holdIn:null,_engIn:null,_cpeIn:null};
@@ -1772,8 +1786,8 @@ function reconcileOn(){ return !!(STATE.brand&&STATE.brand.reconcile); }
 function reconcileGroup(grp){
   const paid=grp.filter(r=>(r.type||"paid")==="paid"), org=grp.filter(r=>(r.type||"paid")==="organic");
   if(!paid.length || !org.length) return grp;   // rien à réconcilier
-  const sumB=arr=>{ const a={impressions:0,reach:0,spend:0,likes:0,comments:0,shares:0,saves:0,followers:0,profile_views:0,hook_views:0,hold_views:0,completions:0,interactions:0,wt:0,wtw:0};
-    arr.forEach(r=>{ for(const k of ["impressions","reach","spend","likes","comments","shares","saves","followers","profile_views","hook_views","hold_views","completions","interactions"]) a[k]+=(r[k]||0);
+  const sumB=arr=>{ const a={impressions:0,reach:0,spend:0,likes:0,comments:0,shares:0,saves:0,followers:0,profile_views:0,hook_views:0,hold_views:0,completions:0,interactions:0,creator_cost:0,wt:0,wtw:0};
+    arr.forEach(r=>{ for(const k of ["impressions","reach","spend","likes","comments","shares","saves","followers","profile_views","hook_views","hold_views","completions","interactions","creator_cost"]) a[k]+=(r[k]||0);
       if(r.watch_time>0){ a.wt+=r.watch_time*(r.impressions||1); a.wtw+=(r.impressions||1); } });
     a.watch_time=a.wtw>0?a.wt/a.wtw:0; return a; };
   const P=sumB(paid), O=sumB(org), mx=k=>Math.max(P[k],O[k]);
@@ -1783,7 +1797,7 @@ function reconcileGroup(grp){
     likes:mx("likes"),comments:mx("comments"),shares:mx("shares"),saves:mx("saves"),
     followers:mx("followers"),profile_views:mx("profile_views"),
     hook_views:mx("hook_views"),hold_views:mx("hold_views"),completions:mx("completions"),
-    interactions:mx("interactions"),watch_time:Math.max(P.watch_time,O.watch_time) });
+    interactions:mx("interactions"),watch_time:Math.max(P.watch_time,O.watch_time),creator_cost:mx("creator_cost") });
   Object.assign(rec, computeRates(rec.platform, rec));
   return [rec];
 }
@@ -1951,12 +1965,6 @@ function renderDashboard(){
         <div class="chart-md"><canvas id="chNature"></canvas></div>
         <div id="natTable" style="margin-top:12px"></div></div>
       <div class="tile b12"><h3>🏆 Les awards</h3><div id="awards"></div></div>
-      <div class="tile b12"><h3>Analyse &amp; recommandations</h3>
-        <div class="notes-grid">
-          <div><label>🟢 Ce qui fonctionne</label><textarea id="nWorks" placeholder="Points forts de la période…"></textarea></div>
-          <div><label>🟠 À surveiller</label><textarea id="nWatch" placeholder="Points de vigilance…"></textarea></div>
-          <div><label>🎯 Recommandations</label><textarea id="nReco" placeholder="Prochaines actions…"></textarea></div>
-        </div></div>
       <div class="tile b12"><h3>Détail par campagne</h3><div id="campTable"></div></div>
       <div class="tile b6"><h3>Top contenus — hook rate (≥ 1 000 impr.)</h3><div id="topTable"></div></div>
       <div class="tile b6"><h3>Par plateforme</h3><div id="platTable"></div></div>
@@ -2012,12 +2020,7 @@ function renderDashboard(){
 
   renderAggTable("fmtTable", groupBy(rows,"format"), "Format", obj);
   renderAwards("awards", rows);
-  // commentaires éditables (sauvegarde auto par client)
   const nt=notesFor();
-  $("nWorks").value=nt.works||""; $("nWatch").value=nt.watch||""; $("nReco").value=nt.reco||"";
-  $("nWorks").oninput=e=>{notesFor().works=e.target.value;saveNotes();touchClient();};
-  $("nWatch").oninput=e=>{notesFor().watch=e.target.value;saveNotes();touchClient();};
-  $("nReco").oninput=e=>{notesFor().reco=e.target.value;saveNotes();touchClient();};
   // bandeau contexte + marqueur conflit
   const applyCtxStyle=()=>{ const on=$("ctxConflict").checked, b=$("ctxBanner");
     b.style.borderLeft="4px solid "+(on?"var(--red)":"var(--accent)");
@@ -2050,15 +2053,21 @@ function renderDashboard(){
   const share=agg.impressions>0?(ai.impressions/agg.impressions*100):0;
   const inflTops=groupBy(infl,"creative").filter(g=>g.name!=="(non précisé)").sort((a,b)=>b.impressions-a.impressions).slice(0,5);
   if(!infl.length){ $("inflBox").innerHTML='<div class="empty" style="padding:24px 10px">Aucun contenu marqué « influence » sur la période.<br><span class="note">Coche « Contenu influence » sur un post dans l\'onglet Données.</span></div>'; }
-  else { $("inflBox").innerHTML=`
-    <div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
+  else { const cost=ai.creator_cost, emvVal=emv(ai.impressions), roi=cost>0?emvVal/cost:null;
+    $("inflBox").innerHTML=`
+    <div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:8px">
       <div class="kpi"><div class="l">Contenus</div><div class="v">${intf(infl.length)}</div></div>
       <div class="kpi"><div class="l">Impressions</div><div class="v" style="font-size:20px">${intf(ai.impressions)}</div><div class="l">${share.toFixed(0)}% du total</div></div>
       <div class="kpi"><div class="l">Engagement</div><div class="v" style="font-size:20px">${pct(ai.engagement_rate)}</div></div>
     </div>
-    <table><thead><tr><th>Créa</th><th class="num">Impr.</th><th class="num">Hook</th><th class="num">Engmt</th></tr></thead><tbody>${
+    <div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px">
+      <div class="kpi"><div class="l">Coût créateurs</div><div class="v" style="font-size:20px">${cost>0?eur(cost):"—"}</div></div>
+      <div class="kpi"><div class="l">EMV (valeur média)</div><div class="v" style="font-size:20px">${eur(emvVal)}</div><div class="l">${emvCpm()} € / 1 000 impr.</div></div>
+      <div class="kpi"><div class="l">ROI influence</div><div class="v ${roi==null?"":roi>=1?"good":"bad"}" style="font-size:20px">${roi!=null?"×"+roi.toFixed(1):"—"}</div><div class="l">${roi!=null?"pour 1 € versé":"saisir le coût créateur"}</div></div>
+    </div>
+    <table><thead><tr><th>Créa</th><th class="num">Impr.</th><th class="num">Coût</th><th class="num">EMV</th><th class="num">Engmt</th></tr></thead><tbody>${
       inflTops.map(g=>{ const u=cleanUrl(g.url); const nm=u?`<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">${escapeHtml(g.name)} ↗</a>`:escapeHtml(g.name);
-        return `<tr><td class="nm" title="${escapeHtml(g.name)}">${linkBtn(g)} ${previewBtn(g)} <span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${nm}</td><td class="num">${intf(g.impressions)}</td><td class="num">${pct(g.hook_rate)}</td><td class="num">${pct(g.engagement_rate)}</td></tr>`;}).join("")
+        return `<tr><td class="nm" title="${escapeHtml(g.name)}">${linkBtn(g)} ${previewBtn(g)} <span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${nm}</td><td class="num">${intf(g.impressions)}</td><td class="num">${g.creator_cost>0?eur(g.creator_cost):"—"}</td><td class="num">${eur(emv(g.impressions))}</td><td class="num">${pct(g.engagement_rate)}</td></tr>`;}).join("")
     }</tbody></table>`; }
 }
 
@@ -2223,6 +2232,9 @@ function exportBilan(){
         ${kc("Contenus influence",intf(infl.length),"posts identifiés sur la période","","")}
         ${kc("Impressions influence",intf(aInfl.impressions),inflShare.toFixed(0)+"% du total période","","")}
         ${kc("Engagement influence",pct(aInfl.engagement_rate),"vs "+pct(agg.engagement_rate)+" global","","")}
+        ${kc("Coût créateurs",aInfl.creator_cost>0?eur(aInfl.creator_cost):"—","investissement influence","","")}
+        ${kc("EMV (valeur média)",eur(emv(aInfl.impressions)),emvCpm()+" € / 1 000 impr.","","")}
+        ${kc("ROI influence",aInfl.creator_cost>0?"×"+(emv(aInfl.impressions)/aInfl.creator_cost).toFixed(1):"—","valeur média / coût","",aInfl.creator_cost>0?(emv(aInfl.impressions)/aInfl.creator_cost>=1?"good":"bad"):"")}
       </div></section>`:""}
     ${tops.length?`<section><h2 class="sec">Top contenus — hook rate</h2>${tableRows(tops,"Créa",true,true)}<p class="muted" style="margin:8px 0 0;font-size:9.5px">↗ Cliquez sur un contenu pour ouvrir le post sur le réseau social.</p></section>`:""}
 
@@ -2394,13 +2406,12 @@ function buildPresentation(){
       </div>${over?`<div class="pctx" style="margin-top:18px"><b>⚠ Budget dépassé de ${eur(aggCum.spend-budget)}</b> (${(budgetPct*100).toFixed(0)} % du budget annuel).</div>`:""}</div>${foot}</div>`,
       `${eur(aggCum.spend)} consommés${budget>0?" sur "+eur(budget)+" ("+(budgetPct*100).toFixed(0)+"%)":""}${over?" — budget dépassé":""}.`);
   }
-  // analyse & recommandations
-  if((nt.works||"").trim()||(nt.watch||"").trim()||(nt.reco||"").trim())
-    add("reco","Analyse & recommandations", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Analyse &amp; recommandations</h2>
+  // analyse & recommandations (éditable dans la slide)
+  add("reco","Analyse & recommandations", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Analyse &amp; recommandations</h2>
       <div class="pbody"><div class="pnote-blocks">
-        <div class="pnb g"><h4>🟢 Ce qui fonctionne</h4><p>${escapeHtml(nt.works||"—")}</p></div>
-        <div class="pnb o"><h4>🟠 À surveiller</h4><p>${escapeHtml(nt.watch||"—")}</p></div>
-        <div class="pnb r"><h4>🎯 Recommandations</h4><p>${escapeHtml(nt.reco||"—")}</p></div>
+        <div class="pnb g"><h4>🟢 Ce qui fonctionne</h4><textarea class="preco" id="pr_works" data-k="works" placeholder="Points forts de la période…">${escapeHtml(nt.works||"")}</textarea></div>
+        <div class="pnb o"><h4>🟠 À surveiller</h4><textarea class="preco" id="pr_watch" data-k="watch" placeholder="Points de vigilance…">${escapeHtml(nt.watch||"")}</textarea></div>
+        <div class="pnb r"><h4>🎯 Recommandations</h4><textarea class="preco" id="pr_reco" data-k="reco" placeholder="Prochaines actions…">${escapeHtml(nt.reco||"")}</textarea></div>
       </div></div>${foot}</div>`, nt.reco||"Déroule les recommandations et prochaines actions.");
   // merci
   add("thanks","", `<div class="pslide pcover" style="--pc:${PC}">${b.logo?`<img class="plogo" src="${b.logo}">`:""}<div class="peyebrow">Merci</div><h1 class="ptitle" style="font-size:56px">Des questions ?</h1><div class="pmeta">${escapeHtml(brandName)} · ${escapeHtml(clientName())}</div></div>`, "Ouvre la discussion / questions du client.");
@@ -2423,6 +2434,10 @@ function showPresSlide(i){
   const ta=$("presNoteArea");
   ta.value=presNotesStore()[sl.key]||""; ta.placeholder=sl.auto?("💡 "+sl.auto):"Tes notes pour cette slide…";
   ta.oninput=()=>{ presNotesStore()[sl.key]=ta.value; saveNotes(); };
+  // slide analyse & reco : textareas éditables -> sauvées dans les notes du client
+  $("presentStage").querySelectorAll("textarea.preco").forEach(t=>{
+    t.oninput=()=>{ notesFor()[t.dataset.k]=t.value; saveNotes(); touchClient(); };
+  });
 }
 function togglePresNotes(force){ const on=force!==undefined?force:!$("present").classList.contains("notes-on");
   $("present").classList.toggle("notes-on",on); $("presNotesBtn").classList.toggle("active",on); }
@@ -2435,12 +2450,25 @@ function presKey(e){ if(e.target&&e.target.tagName==="TEXTAREA") { if(e.key==="E
   else if(e.key==="n"||e.key==="N"){ togglePresNotes(); }
   else if(e.key==="Escape"){ closePresentation(); } }
 $("presNotesBtn").onclick=()=>togglePresNotes();
+// enregistrer la slide courante en image PNG
+function saveCurrentSlide(){
+  const slide=$("presentStage").querySelector(".pslide");
+  if(!slide || typeof html2canvas==="undefined"){ alert("Export d'image indisponible."); return; }
+  const btn=$("presSaveBtn"); const old=btn.textContent; btn.textContent="…";
+  html2canvas(slide,{scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false}).then(canvas=>{
+    const a=document.createElement("a");
+    a.href=canvas.toDataURL("image/png");
+    a.download="slide-"+clientName().replace(/[^a-z0-9]+/gi,"-").toLowerCase()+"-"+(presIdx+1)+".png"; a.click();
+    btn.textContent=old; toast("Slide enregistrée en image.");
+  }).catch(()=>{ btn.textContent=old; alert("Impossible de générer l'image de la slide."); });
+}
+$("presSaveBtn").onclick=saveCurrentSlide;
 $("presentBtn").onclick=openPresentation;
 $("presPrev").onclick=()=>showPresSlide(presIdx-1);
 $("presNext").onclick=()=>showPresSlide(presIdx+1);
 $("presClose").onclick=closePresentation;
 $("presFull").onclick=()=>{ const el=$("present"); if(!document.fullscreenElement) el.requestFullscreen&&el.requestFullscreen().catch(()=>{}); else document.exitFullscreen&&document.exitFullscreen(); };
-$("presentStage").onclick=e=>{ if(e.target.closest("a")||e.target.closest("button")||e.target.closest("[data-prev]")) return; showPresSlide(presIdx+1); };
+$("presentStage").onclick=e=>{ if(e.target.closest("a")||e.target.closest("button")||e.target.closest("[data-prev]")||e.target.closest("textarea")||e.target.closest("input")) return; showPresSlide(presIdx+1); };
 
 /* ---------- aperçu visuel d'un contenu (lecteur intégré) ---------- */
 function ifr(src,h){ return `<iframe src="${escapeHtml(src)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen scrolling="no" style="width:100%;height:${h};border:0;display:block;background:#000"></iframe>`; }
@@ -2634,6 +2662,7 @@ function openRowModal(id){
   if(!Array.from($("rf_format").options).some(o=>o.value===fval)) $("rf_format").add(new Option(fval,fval));
   $("rf_format").value = fval;
   $("rf_influence").checked = r ? !!r.influence : false;
+  setV("rf_creator_cost", r && r.creator_cost ? r.creator_cost : "");
   $("rf_darkpost").checked = r ? !!r.darkpost : false;
   ["impressions","reach","spend","likes","comments","shares","saves","followers","profile_views","hook_views","hold_views","completions","watch_time"]
     .forEach(k=>setV("rf_"+k, r ? r[k] : ""));
@@ -2658,7 +2687,7 @@ function readRowForm(){
     campaign:($("rf_campaign").value.trim())||"(non précisé)",
     creative:($("rf_creative").value.trim())||"(non précisé)",
     url:cleanUrl($("rf_url").value), media:cleanUrl($("rf_media").value),
-    nature:$("rf_nature").value, format:$("rf_format").value||"Autre", influence:$("rf_influence").checked, darkpost:$("rf_darkpost").checked,
+    nature:$("rf_nature").value, format:$("rf_format").value||"Autre", influence:$("rf_influence").checked, darkpost:$("rf_darkpost").checked, creator_cost:num("rf_creator_cost"),
     impressions:num("rf_impressions"), reach:num("rf_reach"), spend:num("rf_spend"),
     likes:num("rf_likes"), comments:num("rf_comments"), shares:num("rf_shares"), saves:num("rf_saves"),
     followers:fol("rf_followers"), profile_views:num("rf_profile_views"),
@@ -2882,12 +2911,16 @@ function renderBrandSettings(){
   const b=STATE.brand||{};
   $("brandName").value=b.name||""; $("brandColor").value=b.color||"#3b5bfd"; $("brandPass").value=b.password||"";
   $("reconcileToggle").checked=!!b.reconcile;
+  $("emvCpmInput").value=(b.emvCpm!=null?b.emvCpm:10);
 }
 $("saveReconcile").onclick=()=>{
-  STATE.brand.reconcile=$("reconcileToggle").checked; saveBrand();
-  toast(STATE.brand.reconcile?"Réconciliation Paid/Organique activée (plus gros chiffre).":"Réconciliation désactivée (somme).");
+  STATE.brand.reconcile=$("reconcileToggle").checked;
+  STATE.brand.emvCpm=Math.max(0,Number($("emvCpmInput").value)||0); saveBrand();
+  toast("Méthode de calcul enregistrée.");
   refreshAll();
 };
+function emvCpm(){ return (STATE.brand&&STATE.brand.emvCpm!=null)?STATE.brand.emvCpm:10; }
+function emv(impressions){ return (impressions||0)/1000*emvCpm(); }
 $("saveBrand").onclick=()=>{
   STATE.brand.name=$("brandName").value.trim();
   STATE.brand.color=$("brandColor").value;
