@@ -597,6 +597,20 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   </div>
 </div>
 
+<!-- ================= LIER UN CONTENU (lien + visuel) ================= -->
+<div id="linkModal" class="modal" style="display:none;z-index:135">
+  <div class="modal-box card" style="max-width:520px">
+    <div class="flex-between" style="margin-bottom:10px">
+      <h2 style="margin:0;font-size:15px">🔗 Lier le contenu</h2>
+      <button class="btn sec" id="linkClose" style="padding:6px 12px">✕</button>
+    </div>
+    <p class="note" id="linkName" style="margin:0 0 12px"></p>
+    <div class="field"><label>Lien du post (URL réseau social)</label><input type="text" id="lk_url" placeholder="https://www.instagram.com/reel/…"></div>
+    <div class="field"><label>Visuel — vidéo/image (pour l'aperçu)</label><input type="text" id="lk_media" placeholder="Lien direct .mp4/.jpg, ou URL YouTube/TikTok… (sinon = le lien du post)"></div>
+    <div class="row" style="margin-top:6px"><button class="btn" id="linkSave">Enregistrer</button><button class="btn sec" id="linkCancel">Annuler</button></div>
+  </div>
+</div>
+
 <!-- ================= APERÇU VISUEL D'UN CONTENU ================= -->
 <div id="mediaModal" class="modal" style="display:none;z-index:130">
   <div class="modal-box card" style="max-width:560px">
@@ -1927,7 +1941,7 @@ function renderDashboard(){
     </div>
     <table><thead><tr><th>Créa</th><th class="num">Impr.</th><th class="num">Hook</th><th class="num">Engmt</th></tr></thead><tbody>${
       inflTops.map(g=>{ const u=cleanUrl(g.url); const nm=u?`<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">${escapeHtml(g.name)} ↗</a>`:escapeHtml(g.name);
-        return `<tr><td class="nm" title="${escapeHtml(g.name)}">${previewBtn(g)}<span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${nm}</td><td class="num">${intf(g.impressions)}</td><td class="num">${pct(g.hook_rate)}</td><td class="num">${pct(g.engagement_rate)}</td></tr>`;}).join("")
+        return `<tr><td class="nm" title="${escapeHtml(g.name)}">${linkBtn(g)} ${previewBtn(g)} <span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${nm}</td><td class="num">${intf(g.impressions)}</td><td class="num">${pct(g.hook_rate)}</td><td class="num">${pct(g.engagement_rate)}</td></tr>`;}).join("")
     }</tbody></table>`; }
 }
 
@@ -2271,6 +2285,34 @@ document.addEventListener("click",e=>{ const b=e.target.closest("[data-prev]"); 
 function previewBtn(g){ const u=cleanUrl(g.url), m=cleanUrl(g.media); if(!u&&!m) return "";
   return `<button class="actbtn" data-prev="${escapeHtml(g.url||"")}" data-prevm="${escapeHtml(g.media||"")}" data-prevn="${escapeHtml(g.name||g.creative||"")}" title="Voir le visuel">▶</button>`; }
 
+/* ---------- lier un contenu (lien + visuel) depuis le reporting ---------- */
+let linkEditing=null;   // {creative, platform}
+function openLinkEditor(creative, platform){
+  const rows=STATE.rows.filter(r=>r.client===STATE.currentClient && r.creative===creative && (!platform||r.platform===platform));
+  const cur=rows.find(r=>r.url)||rows.find(r=>r.media)||rows[0]||{};
+  linkEditing={creative, platform};
+  $("linkName").innerHTML=`<b>${escapeHtml(creative)}</b>${platform?` · ${PLATFORMS[platform].label}`:""} — s'applique à ${rows.length} ligne(s) de ce contenu.`;
+  $("lk_url").value=cur.url||""; $("lk_media").value=cur.media||"";
+  $("linkModal").style.display="flex"; setTimeout(()=>$("lk_url").focus(),30);
+}
+function closeLinkEditor(){ $("linkModal").style.display="none"; linkEditing=null; }
+$("linkClose").onclick=closeLinkEditor;
+$("linkCancel").onclick=closeLinkEditor;
+$("linkModal").onclick=e=>{ if(e.target.id==="linkModal") closeLinkEditor(); };
+$("linkSave").onclick=()=>{ if(!linkEditing) return;
+  const url=cleanUrl($("lk_url").value), media=cleanUrl($("lk_media").value);
+  const {creative,platform}=linkEditing; let n=0;
+  STATE.rows.forEach(r=>{ if(r.client===STATE.currentClient && r.creative===creative && (!platform||r.platform===platform)){ r.url=url; r.media=media; n++; } });
+  saveData(); touchClient(); closeLinkEditor();
+  const active=document.querySelector("nav button.active"); const tab=active&&active.dataset.tab;
+  if(tab==="dashboard") renderDashboard(); else if(tab==="data") renderData();
+  toast(`Lien associé à « ${creative} » (${n} ligne·s).`);
+};
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-link]"); if(!b) return;
+  openLinkEditor(b.getAttribute("data-link"), b.getAttribute("data-linkp")||""); });
+// bouton 🔗 réutilisable (toujours présent pour ajouter/éditer le lien d'un contenu)
+function linkBtn(g){ return `<button class="actbtn" data-link="${escapeHtml(g.name||g.creative||"")}" data-linkp="${escapeHtml(g.platform||"")}" title="Lier un lien / visuel à ce contenu">🔗</button>`; }
+
 function renderAggTable(elId, groups, nameLabel, obj, isTop){
   if(!groups.length){ $(elId).innerHTML='<div class="empty">—</div>'; return; }
   let sorted=groups.slice();
@@ -2281,9 +2323,9 @@ function renderAggTable(elId, groups, nameLabel, obj, isTop){
     const u=isTop?cleanUrl(g.url):"";
     const nameH=u? `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">${escapeHtml(g.name)} ↗</a>` : escapeHtml(g.name);
     const infB=(isTop&&g.influence)?' <span class="tag" style="border-color:#a855f7;color:#a855f7;padding:0 5px">★</span>':'';
-    const prev=isTop?previewBtn(g):"";
+    const acts=isTop?(linkBtn(g)+" "+previewBtn(g)+" "):"";
     return `<tr>
-      <td class="nm" title="${escapeHtml(g.name)}">${prev}<span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${nameH}${infB}</td>
+      <td class="nm" title="${escapeHtml(g.name)}">${acts}<span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${nameH}${infB}</td>
       <td class="num">${intf(g.impressions)}</td>
       <td class="num ${hc}">${pct(g.hook_rate)}</td>
       <td class="num ${hdc}">${pct(g.hold_rate)}</td>
