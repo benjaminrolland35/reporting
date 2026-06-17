@@ -1321,6 +1321,7 @@ function renderAgency(){
     else {
       if(imprC==="bad") alerts.push({sev:"high",msg:"Objectif annuel non atteignable (proj. "+(imprProjPct*100).toFixed(0)+"%)"});
       else if(overall==="bad") alerts.push({sev:"med",msg:"Plusieurs KPI sous objectif"});
+      if(budget>0 && agg.spend>budget) alerts.push({sev:"high",msg:"Budget média dépassé ("+eur(agg.spend)+" / "+eur(budget)+")"});
       if(q.length) alerts.push({sev:"med",msg:"À compléter — "+q.join(" · ")});
     }
     return {c,objs,yearRows,agg,lastMonth,elapsed,imprObj,budget,folGoal,folTotal,projImpr,projSpend,imprProjPct,engC,hookC,imprC,overall,upd,daysSince,alerts,hasData:yearRows.length>0};
@@ -1372,7 +1373,8 @@ function renderAgency(){
       <td class="num ${d.hookC}">${pct(d.agg.hook_rate)}<br><span class="note">obj ${pct(d.objs.global.hook)}</span></td>
       <td class="num">${intf(d.agg.impressions)}<br><span class="note">${d.imprObj>0?(d.agg.impressions/d.imprObj*100).toFixed(0)+"% obj annuel":"—"}</span></td>
       <td class="num">${land(d)}</td>
-      <td class="num">${d.budget>0?eur(d.agg.spend):"—"}<br><span class="note">${budgetPace!=null?"rythme "+(budgetPace*100).toFixed(0)+"% du budget":"budget non défini"}</span></td>
+      <td class="num">${(()=>{ const over=d.budget>0&&d.agg.spend>d.budget;
+        return `<span class="${over?'bad':''}">${d.budget>0?eur(d.agg.spend):"—"}</span>${over?' <span class="tag" style="border-color:var(--red);color:var(--red)">⚠ dépassé</span>':''}<br><span class="note">${d.budget>0?(over?"sur "+eur(d.budget)+" — +"+eur(d.agg.spend-d.budget):"rythme "+(budgetPace*100).toFixed(0)+"% du budget"):"budget non défini"}</span>`; })()}</td>
       <td class="num">${folPct!=null?(folPct*100).toFixed(0)+"%":"—"}<br><span class="note">${d.folGoal>0?intf(d.folTotal)+" / "+intf(d.folGoal):"obj. non défini"}</span></td>
       <td class="num"><span class="${d.daysSince!=null&&d.daysSince>7?"bad":""}">${timeAgo(d.upd)}</span></td>
       <td><button class="actbtn" data-go="${d.c.id}">Ouvrir →</button></td>
@@ -1806,6 +1808,13 @@ function renderDashboard(){
       ${drow("Abonnés nets",agg.followers,aggPrev.followers,"int",false)}
       </tbody></table></div></div>`;
   }
+  // avertissement budget dépassé (consommé > alloué)
+  const budgetWarn = (budget>0 && aggCum.spend>budget)
+    ? `<div class="tile b12" style="border-left:4px solid var(--red);background:#fef2f2;display:flex;align-items:center;gap:12px">
+        <span style="font-size:22px">⚠</span>
+        <div style="font-size:14px"><b>Budget média dépassé</b> — ${eur(aggCum.spend)} consommés sur ${eur(budget)} alloués
+        (<b class="bad">+${eur(aggCum.spend-budget)}</b>, soit ${(budgetPct*100).toFixed(0)} % du budget annuel).</div></div>`
+    : "";
   box.innerHTML=`
     <div class="bento">
       <div class="tile b12" id="ctxBanner">
@@ -1825,12 +1834,13 @@ function renderDashboard(){
       <div class="tile b12" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
         <div style="font-size:15px"><b>${escapeHtml(clientName())}</b> · ${platLbl}</div>
         <div style="color:var(--muted);text-align:right">${periodLbl}${cmpLabel?`<br><span style="font-size:11px">▲▼ comparé à ${cmpLabel}</span>`:""}</div></div>
+      ${budgetWarn}
       ${cmpBlock}
       ${mTile("b3","Engagement",pct(agg.engagement_rate),"objectif "+pct(obj.engagement)+dl(agg.engagement_rate,aggPrev&&aggPrev.engagement_rate,true),colorFor(agg.engagement_rate,obj.engagement),obj.engagement?agg.engagement_rate/obj.engagement:null)}
       ${mTile("b3","Hook rate",pct(agg.hook_rate),"objectif "+pct(obj.hook)+dl(agg.hook_rate,aggPrev&&aggPrev.hook_rate,true),colorFor(agg.hook_rate,obj.hook),(obj.hook&&agg.hook_rate!=null)?agg.hook_rate/obj.hook:null)}
       ${mTile("b3","Hold rate",pct(agg.hold_rate),"objectif "+pct(obj.hold)+dl(agg.hold_rate,aggPrev&&aggPrev.hold_rate,true),colorFor(agg.hold_rate,obj.hold),(obj.hold&&agg.hold_rate!=null)?agg.hold_rate/obj.hold:null)}
       ${mTile("b3","Impressions (période)",intf(agg.impressions),"cumul année : "+intf(aggCum.impressions)+dl(agg.impressions,aggPrev&&aggPrev.impressions,false),"",null)}
-      ${mTile("b4","Budget média",eur(aggCum.spend),budget>0?(budgetPct*100).toFixed(0)+"% du budget "+eur(budget):"budget non défini",budgetPct===null?"":(budgetPct>1?"bad":budgetPct>=.8?"warn":"good"),budgetPct)}
+      ${mTile("b4","Budget média",eur(aggCum.spend),budget>0?(budgetPct>1?"⚠ Dépassé de "+eur(aggCum.spend-budget)+" / "+eur(budget):(budgetPct*100).toFixed(0)+"% du budget "+eur(budget)):"budget non défini",budgetPct===null?"":(budgetPct>1?"bad":budgetPct>=.8?"warn":"good"),budgetPct)}
       ${mTile("b4","CPM moyen",agg.cpm!==null?agg.cpm.toFixed(2)+" €":"—","coût pour 1000 impressions","",null)}
       ${mTile("b4","CPE moyen",agg.cpe!==null?agg.cpe.toFixed(2)+" €":"—","coût par engagement","",null)}
       <div class="tile b4"><div class="metric"><span class="lbl">Mix de contenus (période)</span>
