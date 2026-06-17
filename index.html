@@ -535,6 +535,9 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     <div class="row">
       <div class="field" style="flex:1 1 100%"><label>Lien du post (URL réseau social)</label><input type="text" id="rf_url" placeholder="https://www.instagram.com/reel/…"></div>
     </div>
+    <div class="row">
+      <div class="field" style="flex:1 1 100%"><label>Visuel — vidéo/image (pour l'aperçu dans le dashboard)</label><input type="text" id="rf_media" placeholder="Lien direct .mp4/.jpg, ou URL YouTube/TikTok/Instagram… (sinon = le lien du post)"></div>
+    </div>
     <div class="row" style="align-items:flex-end">
       <div class="field"><label>Nature</label><select id="rf_nature"><option value="filrouge">Fil rouge</option><option value="activation">Activation</option></select></div>
       <div class="field"><label>Format</label><select id="rf_format"></select></div>
@@ -594,6 +597,18 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   </div>
 </div>
 
+<!-- ================= APERÇU VISUEL D'UN CONTENU ================= -->
+<div id="mediaModal" class="modal" style="display:none;z-index:130">
+  <div class="modal-box card" style="max-width:560px">
+    <div class="flex-between" style="margin-bottom:10px">
+      <h2 id="mediaTitle" style="margin:0;font-size:15px;max-width:80%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Visuel</h2>
+      <button class="btn sec" id="mediaClose" style="padding:6px 12px">✕</button>
+    </div>
+    <div id="mediaBody" style="display:flex;justify-content:center;align-items:center;min-height:200px;background:#0b0e16;border-radius:10px;overflow:hidden"></div>
+    <div style="margin-top:10px;text-align:right"><a id="mediaLink" href="#" target="_blank" rel="noopener" class="note">Ouvrir sur le réseau ↗</a></div>
+  </div>
+</div>
+
 <!-- ================= MODE PRÉSENTATION (diaporama visio) ================= -->
 <div id="present" class="present" style="display:none">
   <div class="present-stage" id="presentStage"></div>
@@ -630,6 +645,7 @@ const FIELDS = [
   {key:"campaign",   label:"Campagne",            req:false},
   {key:"creative",   label:"Créa / publicité",    req:false},
   {key:"url",        label:"Lien du post (URL)",  req:false},
+  {key:"media",      label:"Visuel (vidéo/image URL)", req:false},
   {key:"nature",     label:"Nature (fil rouge / activation)", req:false},
   {key:"influence",  label:"Influence (oui/non)", req:false},
   {key:"darkpost",   label:"Dark post (hors feed, oui/non)", req:false},
@@ -659,6 +675,7 @@ const META_ALIASES = {
   campaign:["campaign name","nom de la campagne","campagne","campaign","type de publication"],
   creative:["ad name","nom de la publicite","publicite","titre","description"],
   url:["permalink","permalink url","lien","lien permanent","permalien","lien de la publication","lien du post","post url","url","link","lien de l'apercu de la publicite","ad preview link","apercu"],
+  media:["media","visuel","video","video url","thumbnail","thumbnail url","creative url","asset url","miniature","image url"],
   nature:["nature","type de contenu","fil rouge / activation","categorie","programme"],
   influence:["influence","influenceur","createur","creator","collab","partenariat"],
   darkpost:["dark post","darkpost","hors feed","dark","unpublished","non publie","publication non publiee"],
@@ -925,6 +942,7 @@ function normalizeRows(rawRows, mapping, platform, type, year, fallbackMonth){
       campaign: (get("campaign")!==undefined? String(get("campaign")):"(non précisé)").trim()||"(non précisé)",
       creative: (get("creative")!==undefined? String(get("creative")):"(non précisé)").trim()||"(non précisé)",
       url: cleanUrl(get("url")!==undefined? String(get("url")):""),
+      media: cleanUrl(get("media")!==undefined? String(get("media")):""),
       impressions: toNumber(get("impressions")),
       reach: toNumber(get("reach")),
       spend: toNumber(get("spend")),
@@ -1004,7 +1022,8 @@ function groupBy(rows, key){
     (groups[k]=groups[k]||[]).push(r);
   }
   return Object.entries(groups).map(([name,rs])=>({name, platform:rs[0].platform,
-    url:(rs.find(r=>r.url)||{}).url||"", nature:rs[0].nature||"filrouge", influence:rs.some(r=>r.influence),
+    url:(rs.find(r=>r.url)||{}).url||"", media:(rs.find(r=>r.media)||{}).media||"",
+    nature:rs[0].nature||"filrouge", influence:rs.some(r=>r.influence),
     ...aggregate(rs)}));
 }
 
@@ -1107,6 +1126,7 @@ function load(){
     if(r.nature===undefined){ r.nature=detectNature((r.campaign||"")+" "+(r.creative||"")); migrated=true; }
     if(r.influence===undefined){ r.influence=detectInfluence((r.campaign||"")+" "+(r.creative||"")); migrated=true; }
     if(r.url===undefined){ r.url=""; migrated=true; }
+    if(r.media===undefined){ r.media=""; migrated=true; }
     // dark post = contenu Paid hors feed ; défaut : Paid => dark post (corrigeable)
     if(r.darkpost===undefined){ r.darkpost=(r.type||"paid")==="paid"; migrated=true; }
   }
@@ -1907,7 +1927,7 @@ function renderDashboard(){
     </div>
     <table><thead><tr><th>Créa</th><th class="num">Impr.</th><th class="num">Hook</th><th class="num">Engmt</th></tr></thead><tbody>${
       inflTops.map(g=>{ const u=cleanUrl(g.url); const nm=u?`<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">${escapeHtml(g.name)} ↗</a>`:escapeHtml(g.name);
-        return `<tr><td class="nm" title="${escapeHtml(g.name)}"><span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${nm}</td><td class="num">${intf(g.impressions)}</td><td class="num">${pct(g.hook_rate)}</td><td class="num">${pct(g.engagement_rate)}</td></tr>`;}).join("")
+        return `<tr><td class="nm" title="${escapeHtml(g.name)}">${previewBtn(g)}<span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${nm}</td><td class="num">${intf(g.impressions)}</td><td class="num">${pct(g.hook_rate)}</td><td class="num">${pct(g.engagement_rate)}</td></tr>`;}).join("")
     }</tbody></table>`; }
 }
 
@@ -2212,6 +2232,45 @@ $("presClose").onclick=closePresentation;
 $("presFull").onclick=()=>{ const el=$("present"); if(!document.fullscreenElement) el.requestFullscreen&&el.requestFullscreen().catch(()=>{}); else document.exitFullscreen&&document.exitFullscreen(); };
 $("presentStage").onclick=e=>{ if(e.target.closest("a")) return; showPresSlide(presIdx+1); };
 
+/* ---------- aperçu visuel d'un contenu (lecteur intégré) ---------- */
+function ifr(src,h){ return `<iframe src="${escapeHtml(src)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen scrolling="no" style="width:100%;height:${h};border:0;display:block;background:#000"></iframe>`; }
+// Renvoie le HTML d'aperçu pour (url du post, media direct), ou null si impossible.
+function mediaEmbed(url, media){
+  url=cleanUrl(url); media=cleanUrl(media);
+  if(media){
+    if(/\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(media)) return `<video src="${escapeHtml(media)}" controls autoplay playsinline style="max-width:100%;max-height:72vh;display:block"></video>`;
+    if(/\.(jpe?g|png|gif|webp|avif|bmp)(\?|#|$)/i.test(media)) return `<img src="${escapeHtml(media)}" style="max-width:100%;max-height:72vh;display:block">`;
+    const e=platformEmbed(media); if(e) return e;
+    return ifr(media,"72vh");
+  }
+  return platformEmbed(url);
+}
+function platformEmbed(url){ if(!url) return null; let m;
+  if(m=url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{6,})/i)) return ifr(`https://www.youtube.com/embed/${m[1]}`,"60vh");
+  if(m=url.match(/vimeo\.com\/(?:video\/)?(\d+)/i)) return ifr(`https://player.vimeo.com/video/${m[1]}`,"60vh");
+  if(m=url.match(/instagram\.com\/(p|reel|tv)\/([\w-]+)/i)) return `<div style="width:340px;max-width:100%">${ifr(`https://www.instagram.com/${m[1]}/${m[2]}/embed`,"72vh")}</div>`;
+  if(m=url.match(/tiktok\.com\/(?:.*\/video\/|embed\/v2\/|embed\/)(\d+)/i)) return `<div style="width:340px;max-width:100%">${ifr(`https://www.tiktok.com/embed/v2/${m[1]}`,"72vh")}</div>`;
+  if(/facebook\.com|fb\.watch/i.test(url)) return ifr(`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false`,"60vh");
+  return null;
+}
+function openMediaPreview(name, url, media){
+  const html=mediaEmbed(url,media);
+  $("mediaTitle").textContent=name||"Visuel";
+  const link=cleanUrl(url)||cleanUrl(media);
+  const lk=$("mediaLink"); if(link){ lk.href=link; lk.style.display=""; } else lk.style.display="none";
+  $("mediaBody").innerHTML = html || `<div class="empty" style="color:#9aa3b5;padding:40px 20px;text-align:center">Aperçu intégré non disponible pour ce contenu.${link?'<br><span class="note">Utilise « Ouvrir sur le réseau ↗ ».</span>':'<br><span class="note">Ajoute un lien ou un visuel sur ce contenu dans l\'onglet Données.</span>'}</div>`;
+  $("mediaModal").style.display="flex";
+}
+function closeMediaPreview(){ $("mediaBody").innerHTML=""; $("mediaModal").style.display="none"; }   // vider = stoppe la vidéo
+$("mediaClose").onclick=closeMediaPreview;
+$("mediaModal").onclick=e=>{ if(e.target.id==="mediaModal") closeMediaPreview(); };
+// délégation : tout bouton [data-prev] ouvre l'aperçu
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-prev]"); if(!b) return;
+  openMediaPreview(b.getAttribute("data-prevn")||"", b.getAttribute("data-prev")||"", b.getAttribute("data-prevm")||""); });
+// bouton ▶ réutilisable
+function previewBtn(g){ const u=cleanUrl(g.url), m=cleanUrl(g.media); if(!u&&!m) return "";
+  return `<button class="actbtn" data-prev="${escapeHtml(g.url||"")}" data-prevm="${escapeHtml(g.media||"")}" data-prevn="${escapeHtml(g.name||g.creative||"")}" title="Voir le visuel">▶</button>`; }
+
 function renderAggTable(elId, groups, nameLabel, obj, isTop){
   if(!groups.length){ $(elId).innerHTML='<div class="empty">—</div>'; return; }
   let sorted=groups.slice();
@@ -2222,8 +2281,9 @@ function renderAggTable(elId, groups, nameLabel, obj, isTop){
     const u=isTop?cleanUrl(g.url):"";
     const nameH=u? `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">${escapeHtml(g.name)} ↗</a>` : escapeHtml(g.name);
     const infB=(isTop&&g.influence)?' <span class="tag" style="border-color:#a855f7;color:#a855f7;padding:0 5px">★</span>':'';
+    const prev=isTop?previewBtn(g):"";
     return `<tr>
-      <td class="nm" title="${escapeHtml(g.name)}"><span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${nameH}${infB}</td>
+      <td class="nm" title="${escapeHtml(g.name)}">${prev}<span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${nameH}${infB}</td>
       <td class="num">${intf(g.impressions)}</td>
       <td class="num ${hc}">${pct(g.hook_rate)}</td>
       <td class="num ${hdc}">${pct(g.hold_rate)}</td>
@@ -2262,7 +2322,7 @@ function renderData(){
       <td>${escapeHtml(r.format||"Autre")}</td>
       <td>${inflTag(r.influence)}</td>
       <td class="num">${intf(r.impressions)}</td><td class="num">${pct(r.hook_rate)}</td><td class="num">${pct(r.hold_rate)}</td>
-      <td style="white-space:nowrap"><button class="actbtn" data-edit="${r.id}" title="Modifier">✏️</button> <button class="actbtn del" data-del="${r.id}" title="Supprimer">🗑</button></td>
+      <td style="white-space:nowrap">${(cleanUrl(r.url)||cleanUrl(r.media))?`<button class="actbtn" data-prev="${escapeHtml(r.url||"")}" data-prevm="${escapeHtml(r.media||"")}" data-prevn="${escapeHtml(r.creative||"")}" title="Voir le visuel">▶</button> `:""}<button class="actbtn" data-edit="${r.id}" title="Modifier">✏️</button> <button class="actbtn del" data-del="${r.id}" title="Supprimer">🗑</button></td>
     </tr>`).join("")}</tbody></table></div>`;
   box.querySelectorAll("button[data-edit]").forEach(b=>b.onclick=()=>openRowModal(b.dataset.edit));
   box.querySelectorAll("button[data-del]").forEach(b=>b.onclick=()=>deleteRow(b.dataset.del));
@@ -2320,6 +2380,7 @@ function openRowModal(id){
   setV("rf_campaign", r && r.campaign!=="(non précisé)" ? r.campaign : "");
   setV("rf_creative", r && r.creative!=="(non précisé)" ? r.creative : "");
   setV("rf_url", r ? (r.url||"") : "");
+  setV("rf_media", r ? (r.media||"") : "");
   $("rf_nature").value = r ? (r.nature||"filrouge") : "filrouge";
   // format : ajoute l'option si elle n'est pas dans la liste connue
   const fval = r ? (r.format||"Autre") : "Autre";
@@ -2349,7 +2410,7 @@ function readRowForm(){
     year:Number($("rf_year").value), month:Number($("rf_month").value),
     campaign:($("rf_campaign").value.trim())||"(non précisé)",
     creative:($("rf_creative").value.trim())||"(non précisé)",
-    url:cleanUrl($("rf_url").value),
+    url:cleanUrl($("rf_url").value), media:cleanUrl($("rf_media").value),
     nature:$("rf_nature").value, format:$("rf_format").value||"Autre", influence:$("rf_influence").checked, darkpost:$("rf_darkpost").checked,
     impressions:num("rf_impressions"), reach:num("rf_reach"), spend:num("rf_spend"),
     likes:num("rf_likes"), comments:num("rf_comments"), shares:num("rf_shares"), saves:num("rf_saves"),
