@@ -193,6 +193,56 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .alertrow .aname{min-width:140px;flex:0 0 auto}
 .alertrow .achips{display:flex;gap:5px;flex-wrap:wrap;flex:1 1 auto}
 .alertrow .actbtn{flex:0 0 auto}
+/* ---- mode présentation (diaporama) ---- */
+.present{position:fixed;inset:0;z-index:200;background:#0f1320;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.present-stage{flex:1;width:100%;display:flex;align-items:center;justify-content:center;padding:3vh 4vw;overflow:hidden}
+.pslide{--pc:#3b5bfd;background:#fff;border-radius:18px;width:min(1180px,94vw);height:min(760px,84vh);box-shadow:0 24px 60px rgba(0,0,0,.5);
+  padding:42px 54px;display:flex;flex-direction:column;position:relative;overflow:hidden;color:#1a2233}
+.pslide .ph2{font-size:30px;margin:0 0 24px;font-weight:700;display:flex;align-items:center;gap:12px}
+.pslide .ph2::before{content:"";width:8px;height:30px;border-radius:4px;background:var(--pc);display:inline-block}
+.pslide .pfoot{position:absolute;left:54px;right:54px;bottom:20px;display:flex;justify-content:space-between;font-size:13px;color:#8a93a6;border-top:1px solid #eef1f6;padding-top:10px}
+.pslide .pbody{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center}
+.pchart{width:100%;max-height:62vh;object-fit:contain}
+/* couverture */
+.pcover{justify-content:center;background:linear-gradient(155deg,color-mix(in srgb,var(--pc) 14%,#fff),#fff 60%)}
+.pcover .plogo{height:64px;width:auto;margin-bottom:8px}
+.pcover .pbrand{font-size:20px;font-weight:700}
+.pcover .peyebrow{margin-top:18px;font-size:18px;letter-spacing:.22em;text-transform:uppercase;color:var(--pc);font-weight:700}
+.pcover .ptitle{font-size:72px;line-height:1.02;margin:10px 0 18px;letter-spacing:-.02em}
+.pcover .prule{height:6px;width:90px;background:var(--pc);border-radius:4px;margin-bottom:22px}
+.pcover .pmeta{font-size:22px;color:#5b6577}
+/* chiffres clés */
+.pkgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.pk{border:1px solid #e7eaf0;border-top:5px solid var(--pc);border-radius:14px;padding:22px 24px}
+.pk.good{border-top-color:#16a34a}.pk.warn{border-top-color:#d97706}.pk.bad{border-top-color:#dc2626}
+.pk-l{font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:#5b6577;font-weight:700}
+.pk-v{font-size:46px;font-weight:800;letter-spacing:-.02em;margin:4px 0}
+.pk-v.good{color:#16a34a}.pk-v.warn{color:#d97706}.pk-v.bad{color:#dc2626}
+.pk-s{font-size:15px;color:#5b6577}
+.pk-s .pos{color:#16a34a;font-weight:600}.pk-s .neg{color:#dc2626;font-weight:600}
+.pverdict{margin-top:22px;background:color-mix(in srgb,var(--pc) 9%,#fff);border-radius:12px;padding:16px 20px;font-size:17px}
+.ptable{width:100%;border-collapse:collapse;font-size:16px}
+.ptable th{background:color-mix(in srgb,var(--pc) 9%,#fff);text-align:left;padding:10px 12px;border-bottom:2px solid var(--pc);font-size:13px;text-transform:uppercase;letter-spacing:.03em;color:#5b6577}
+.ptable td{padding:9px 12px;border-bottom:1px solid #eef1f6}
+.ptable td.num,.ptable th.num{text-align:right;font-variant-numeric:tabular-nums}
+.pawgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.paward{background:color-mix(in srgb,var(--pc) 8%,#fff);border:1px solid #e7eaf0;border-radius:12px;padding:16px}
+.paward .at{font-size:12px;color:#5b6577;font-weight:700}
+.paward .an{font-size:16px;font-weight:700;margin:6px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.paward .av{font-size:16px;font-weight:600}
+.pnote-blocks{display:flex;flex-direction:column;gap:14px}
+.pnb{border-left:5px solid var(--pc);background:#fafbfd;border-radius:0 10px 10px 0;padding:14px 20px}
+.pnb.g{border-left-color:#16a34a}.pnb.o{border-left-color:#d97706}.pnb.r{border-left-color:var(--pc)}
+.pnb h4{margin:0 0 6px;font-size:18px}.pnb p{margin:0;font-size:16px;white-space:pre-wrap;line-height:1.5;color:#333}
+.pctx{background:#fef2f2;border:1px solid #fee2e2;border-radius:12px;padding:16px 20px;font-size:17px;margin-bottom:18px}
+.present-dots{display:flex;gap:8px;padding:6px 0}
+.present-dots i{width:9px;height:9px;border-radius:50%;background:#39415a;cursor:pointer;transition:.15s}
+.present-dots i.on{background:#fff;width:22px;border-radius:5px}
+.present-bar{display:flex;align-items:center;gap:12px;width:min(1180px,94vw);padding:10px 4px 16px;color:#cdd3e0}
+.present-bar #presCounter{font-size:14px;min-width:54px;text-align:center}
+.pbtn{background:#222a3d;border:1px solid #39415a;color:#fff;width:40px;height:40px;border-radius:9px;cursor:pointer;font-size:16px}
+.pbtn:hover{background:#2c3550}
+@media(max-width:680px){ .pslide{padding:24px 22px;height:88vh} .pcover .ptitle{font-size:44px} .pkgrid,.pawgrid{grid-template-columns:1fr 1fr} .pslide .ph2{font-size:22px} }
 .tag{font-size:11px;padding:2px 8px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
 .helpbox{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--accent);
   border-radius:10px;padding:14px 16px;margin:4px 0 16px;font-size:13px;line-height:1.6}
@@ -398,7 +448,8 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         <div class="field cmpCustom" style="display:none"><label>Réf. année</label><select id="cmpYear"></select></div>
         <div class="field cmpCustom" style="display:none"><label>Réf. du mois</label><select id="cmpFrom"></select></div>
         <div class="field cmpCustom" style="display:none"><label>réf. au mois</label><select id="cmpTo"></select></div>
-        <div class="field" style="margin-left:auto"><label>&nbsp;</label><button class="btn" id="exportBilan">🖨 Exporter le bilan (PDF)</button></div>
+        <div class="field" style="margin-left:auto"><label>&nbsp;</label><button class="btn" id="presentBtn">▶ Mode présentation</button></div>
+        <div class="field"><label>&nbsp;</label><button class="btn sec" id="exportBilan">🖨 Exporter (PDF)</button></div>
       </div>
     </div>
     <div id="dashContent"></div>
@@ -540,6 +591,20 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       <button class="btn" id="rowModalSave">Enregistrer</button>
       <button class="btn sec" id="rowModalCancel">Annuler</button>
     </div>
+  </div>
+</div>
+
+<!-- ================= MODE PRÉSENTATION (diaporama visio) ================= -->
+<div id="present" class="present" style="display:none">
+  <div class="present-stage" id="presentStage"></div>
+  <div class="present-dots" id="presDots"></div>
+  <div class="present-bar">
+    <button class="pbtn" id="presPrev" title="Précédent (←)">←</button>
+    <span id="presCounter">1 / 1</span>
+    <button class="pbtn" id="presNext" title="Suivant (→)">→</button>
+    <span style="flex:1"></span>
+    <button class="pbtn" id="presFull" title="Plein écran">⛶</button>
+    <button class="pbtn" id="presClose" title="Quitter (Échap)">✕</button>
   </div>
 </div>
 
@@ -2032,6 +2097,120 @@ function exportBilan(){
 // variante de renderAwards qui écrit dans un élément donné (pour le PDF)
 function renderAwards2(el, rows){ el.id="__awtmp"; renderAwards("__awtmp", rows); el.removeAttribute("id"); }
 $("exportBilan").onclick=exportBilan;
+
+/* ---------- mode présentation (diaporama visio) ---------- */
+let presSlides=[], presIdx=0;
+function buildPresentation(){
+  const rows=filteredRows();
+  if(!rows.length){ alert("Aucune donnée à présenter pour ce filtre."); return false; }
+  const platform=$("fltPlatform").value, obj=objFor(platform==="all"?"global":platform), agg=aggregate(rows);
+  const yr=Number($("fltYear").value); let from=Number($("fltFrom").value), to=Number($("fltTo").value); if(from>to){const t=from;from=to;to=t;}
+  const periodLbl=MONTHS[from-1]+"–"+MONTHS[to-1]+" "+yr;
+  const platLbl=platform==="all"?"Toutes plateformes":PLATFORMS[platform].label;
+  const tflt=$("fltType").value;
+  const b=STATE.brand||{}, PC=(b.color&&/^#/.test(b.color))?b.color:"#3b5bfd", brandName=b.name||"Reporting social", nt=notesFor();
+  const cmp=comparisonRows(), aggPrev=(cmp&&cmp.rows.length)?aggregate(cmp.rows):null, cmpLabel=cmp?cmp.label:null;
+  const cumRows=STATE.rows.filter(r=>r.client===STATE.currentClient&&r.year===yr&&(platform==="all"||r.platform===platform)&&(tflt==="all"||(r.type||"paid")===tflt));
+  const aggCum=aggregate(cumRows);
+  const platKeys=["instagram","facebook","tiktok","linkedin","youtube"], sumObj=k=>platKeys.reduce((s,p)=>s+(objFor(p)[k]||0),0);
+  const budget=platform==="all"?sumObj("media_budget"):obj.media_budget, budgetPct=budget>0?aggCum.spend/budget:null;
+  const foot=`<div class="pfoot"><span>${escapeHtml(brandName)} — ${escapeHtml(clientName())}</span><span>${platLbl} · ${periodLbl}</span></div>`;
+  const dl=(cur,prev,rate)=>{ if(aggPrev==null||cur==null||prev==null||prev===0||!isFinite(cur)) return "";
+    const diff=rate?(cur-prev):(cur-prev)/prev, up=diff>=0;
+    return ` · <span class="${up?'pos':'neg'}">${up?'▲':'▼'} ${rate?((up?'+':'')+(diff*100).toFixed(1)+' pts'):((up?'+':'')+(diff*100).toFixed(0)+'%')}</span>`; };
+  // graphiques (images, avec bandes d'événements)
+  const series=monthlySeries(rows).filter(s=>s.month>=from&&s.month<=to), labels=series.map(s=>s.label);
+  const tickc="#5b6577", gridc="#e8ebf1", leg={legend:{position:"top",labels:{color:tickc,boxWidth:14,font:{size:13}}}};
+  const bands=eventBandsForYear(yr,from,to);
+  const imgRates=chartToImg("line",{labels,datasets:[
+      {label:"Hook rate",data:series.map(s=>s.hook_rate!=null?+(s.hook_rate*100).toFixed(2):null),borderColor:PC,backgroundColor:PC+"22",tension:.35,spanGaps:true,fill:true,pointRadius:3,borderWidth:3},
+      {label:"Hold rate",data:series.map(s=>s.hold_rate!=null?+(s.hold_rate*100).toFixed(2):null),borderColor:"#7c5cff",backgroundColor:"#7c5cff22",tension:.35,spanGaps:true,fill:true,pointRadius:3,borderWidth:3}]},
+    {plugins:leg,scales:{y:{ticks:{color:tickc,font:{size:13},callback:v=>v+" %"},grid:{color:gridc}},x:{ticks:{color:tickc,font:{size:13}},grid:{display:false}}}},1100,460,bands,from);
+  const imgVol=chartToImg("bar",{labels,datasets:[
+      {label:"Impressions",data:series.map(s=>s.impressions),backgroundColor:PC+"cc",borderRadius:5,yAxisID:"y"},
+      {label:"Dépense (€)",type:"line",data:series.map(s=>s.spend),borderColor:"#16a34a",backgroundColor:"#16a34a22",tension:.35,yAxisID:"y1",pointRadius:3,borderWidth:3}]},
+    {plugins:leg,scales:{y:{position:"left",ticks:{color:tickc,font:{size:12}},grid:{color:gridc}},y1:{position:"right",ticks:{color:tickc,font:{size:12}},grid:{drawOnChartArea:false}},x:{ticks:{color:tickc,font:{size:13}},grid:{display:false}}}},1100,460,bands,from);
+  // tables / awards
+  const natGroups=groupBy(rows,"nature").map(g=>({...g,name:(NATURES[g.name]||{label:g.name}).label}));
+  const tops=groupBy(rows,"creative").filter(g=>g.impressions>=1000).sort((a,b)=>(b.hook_rate||0)-(a.hook_rate||0)).slice(0,6);
+  const tmp=document.createElement('div'); document.body.appendChild(tmp); renderAwards2(tmp,rows);
+  const awInner=tmp.querySelector('.awards'); const awHtml=awInner?awInner.innerHTML.replace(/class="award"/g,'class="paward"'):""; tmp.remove();
+  // verdict
+  const ce=colorFor(agg.engagement_rate,obj.engagement), chk=colorFor(agg.hook_rate,obj.hook), co=colorFor(agg.hold_rate,obj.hold);
+  const hit=[ce,chk,co].filter(x=>x==="good").length;
+  const verdict=hit>=2?`<b>Bilan positif :</b> ${hit}/3 indicateurs clés atteignent l'objectif. ${intf(agg.impressions)} impressions, engagement ${pct(agg.engagement_rate)}.`
+    :`${intf(agg.impressions)} impressions sur la période · engagement ${pct(agg.engagement_rate)} (obj. ${pct(obj.engagement)}).`;
+  const bigKpi=(label,val,sub,cls)=>`<div class="pk ${cls||''}"><div class="pk-l">${label}</div><div class="pk-v ${cls||''}">${val}</div><div class="pk-s">${sub}</div></div>`;
+  const natRows=natGroups.slice().sort((a,b)=>b.impressions-a.impressions).map(g=>`<tr><td>${escapeHtml(g.name)}</td><td class="num">${intf(g.impressions)}</td><td class="num">${pct(g.hook_rate)}</td><td class="num">${pct(g.hold_rate)}</td><td class="num">${pct(g.engagement_rate)}</td></tr>`).join("");
+  const topRows=tops.map(g=>{ const u=cleanUrl(g.url); const nm=u?`<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="color:var(--pc);text-decoration:none">${escapeHtml(g.name)} ↗</a>`:escapeHtml(g.name);
+    return `<tr><td><span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${nm}${g.influence?' <span style="color:#a855f7">★</span>':''}</td><td class="num">${intf(g.impressions)}</td><td class="num">${pct(g.hook_rate)}</td><td class="num">${pct(g.engagement_rate)}</td></tr>`;}).join("");
+
+  const S=[];
+  // 1. couverture
+  S.push(`<div class="pslide pcover" style="--pc:${PC}">
+    ${b.logo?`<img class="plogo" src="${b.logo}">`:`<div class="pbrand">${escapeHtml(brandName)}</div>`}
+    <div class="peyebrow">Bilan social media</div>
+    <h1 class="ptitle">${escapeHtml(clientName())}</h1>
+    <div class="prule"></div>
+    <div class="pmeta">${periodLbl} · ${platLbl}</div></div>`);
+  // 2. chiffres clés
+  S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Les chiffres clés</h2>
+    <div class="pbody"><div class="pkgrid">
+      ${bigKpi("Engagement",pct(agg.engagement_rate),"Objectif "+pct(obj.engagement)+dl(agg.engagement_rate,aggPrev&&aggPrev.engagement_rate,true),ce)}
+      ${bigKpi("Hook rate",pct(agg.hook_rate),"Objectif "+pct(obj.hook)+dl(agg.hook_rate,aggPrev&&aggPrev.hook_rate,true),chk)}
+      ${bigKpi("Hold rate",pct(agg.hold_rate),"Objectif "+pct(obj.hold)+dl(agg.hold_rate,aggPrev&&aggPrev.hold_rate,true),co)}
+      ${bigKpi("Impressions",intf(agg.impressions),"Cumul année "+intf(aggCum.impressions)+dl(agg.impressions,aggPrev&&aggPrev.impressions,false),"")}
+    </div><div class="pverdict">${verdict}</div></div>${foot}</div>`);
+  // 3. contexte (si présent)
+  if((nt.context&&nt.context.trim())||nt.conflict){
+    S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Contexte de la période</h2>
+      <div class="pbody">${nt.conflict?`<div class="pctx"><b>⚠ Point de vigilance / conflit potentiel</b></div>`:""}
+        <p style="font-size:22px;line-height:1.5">${escapeHtml(nt.context||"—")}</p></div>${foot}</div>`);
+  }
+  // 4. évolution hook/hold
+  S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Évolution — Hook &amp; Hold rate</h2><div class="pbody" style="justify-content:center"><img class="pchart" src="${imgRates}"></div>${foot}</div>`);
+  // 5. impressions & dépense
+  S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Impressions &amp; dépense média</h2><div class="pbody" style="justify-content:center"><img class="pchart" src="${imgVol}"></div>${foot}</div>`);
+  // 6. fil rouge vs activation
+  S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Fil rouge vs Activation</h2>
+    <div class="pbody"><table class="ptable"><thead><tr><th>Nature</th><th class="num">Impressions</th><th class="num">Hook</th><th class="num">Hold</th><th class="num">Engagement</th></tr></thead><tbody>${natRows}</tbody></table></div>${foot}</div>`);
+  // 7. top contenus
+  if(tops.length) S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Top contenus</h2>
+    <div class="pbody"><table class="ptable"><thead><tr><th>Contenu</th><th class="num">Impressions</th><th class="num">Hook</th><th class="num">Engagement</th></tr></thead><tbody>${topRows}</tbody></table></div>${foot}</div>`);
+  // 8. awards
+  if(awHtml) S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Les awards de la période</h2><div class="pbody"><div class="pawgrid">${awHtml}</div></div>${foot}</div>`);
+  // 9. analyse & recommandations
+  if((nt.works||"").trim()||(nt.watch||"").trim()||(nt.reco||"").trim())
+    S.push(`<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Analyse &amp; recommandations</h2>
+      <div class="pbody"><div class="pnote-blocks">
+        <div class="pnb g"><h4>🟢 Ce qui fonctionne</h4><p>${escapeHtml(nt.works||"—")}</p></div>
+        <div class="pnb o"><h4>🟠 À surveiller</h4><p>${escapeHtml(nt.watch||"—")}</p></div>
+        <div class="pnb r"><h4>🎯 Recommandations</h4><p>${escapeHtml(nt.reco||"—")}</p></div>
+      </div></div>${foot}</div>`);
+  // 10. merci
+  S.push(`<div class="pslide pcover" style="--pc:${PC}">${b.logo?`<img class="plogo" src="${b.logo}">`:""}<div class="peyebrow">Merci</div><h1 class="ptitle" style="font-size:56px">Des questions ?</h1><div class="pmeta">${escapeHtml(brandName)} · ${escapeHtml(clientName())}</div></div>`);
+  presSlides=S;
+  return true;
+}
+function showPresSlide(i){
+  presIdx=Math.max(0,Math.min(presSlides.length-1,i));
+  $("presentStage").innerHTML=presSlides[presIdx];
+  $("presCounter").textContent=(presIdx+1)+" / "+presSlides.length;
+  $("presDots").innerHTML=presSlides.map((_,k)=>`<i class="${k===presIdx?'on':''}" data-k="${k}"></i>`).join("");
+  $("presDots").querySelectorAll("i").forEach(d=>d.onclick=()=>showPresSlide(Number(d.dataset.k)));
+}
+function openPresentation(){ if(!buildPresentation()) return; $("present").style.display="flex"; showPresSlide(0); document.addEventListener("keydown",presKey); }
+function closePresentation(){ $("present").style.display="none"; document.removeEventListener("keydown",presKey);
+  if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); }
+function presKey(e){ if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ e.preventDefault(); showPresSlide(presIdx+1); }
+  else if(e.key==="ArrowLeft"||e.key==="PageUp"){ e.preventDefault(); showPresSlide(presIdx-1); }
+  else if(e.key==="Escape"){ closePresentation(); } }
+$("presentBtn").onclick=openPresentation;
+$("presPrev").onclick=()=>showPresSlide(presIdx-1);
+$("presNext").onclick=()=>showPresSlide(presIdx+1);
+$("presClose").onclick=closePresentation;
+$("presFull").onclick=()=>{ const el=$("present"); if(!document.fullscreenElement) el.requestFullscreen&&el.requestFullscreen().catch(()=>{}); else document.exitFullscreen&&document.exitFullscreen(); };
+$("presentStage").onclick=e=>{ if(e.target.closest("a")) return; showPresSlide(presIdx+1); };
 
 function renderAggTable(elId, groups, nameLabel, obj, isTop){
   if(!groups.length){ $(elId).innerHTML='<div class="empty">—</div>'; return; }
