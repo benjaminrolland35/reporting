@@ -117,6 +117,10 @@ main{padding:24px;max-width:1280px;margin:0 auto}
 #printArea .nb{border-left:4px solid var(--pc);background:#fafbfd;border-radius:0 8px 8px 0;padding:10px 14px;margin:8px 0;break-inside:avoid}
 #printArea .nb.g{border-left-color:#16a34a} #printArea .nb.o{border-left-color:#d97706} #printArea .nb.r{border-left-color:var(--pc)}
 #printArea .nb.rconf{border-left-color:#dc2626;background:#fef2f2} #printArea .nb.rconf h4{color:#b91c1c}
+#printArea .pdfverbgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#printArea .pdfverb{border:1px solid var(--pline);border-left:4px solid #64748b;border-radius:0 8px 8px 0;padding:9px 12px;break-inside:avoid}
+#printArea .pdfverb .q{font-size:11px;font-style:italic;color:#1a2233;line-height:1.4}
+#printArea .pdfverb .a{font-size:9.5px;font-weight:700;color:#5b6577;margin-top:5px}
 #printArea .nb h4{margin:0 0 4px;font-size:12px} #printArea .nb p{margin:0;white-space:pre-wrap;font-size:11px;color:#333}
 /* ---- pied ---- */
 #printArea .repfoot{margin-top:6px;padding-top:9px;border-top:1px solid var(--pline);
@@ -189,6 +193,10 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .evrow select{min-width:0;padding:6px 8px}
 .evdot{width:10px;height:10px;border-radius:3px;flex:0 0 auto;background:#64748b}
 .evdot.pos{background:#16a34a}.evdot.neg{background:#dc2626}.evdot.neutral{background:#64748b}
+.verb{border:1px solid var(--line);border-left:4px solid #64748b;border-radius:0 10px 10px 0;padding:10px 12px;margin-bottom:10px;background:var(--panel2)}
+.verb-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.verb-top select{min-width:0;padding:6px 8px} .verb-top .vb-author{flex:1 1 160px;min-width:0}
+.verb textarea.vb-text{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:9px 11px;font:inherit;font-size:13px;resize:vertical;min-height:48px}
 tr.month-sep td{background:var(--panel2);border-top:2px solid var(--line);border-bottom:1px solid var(--line);padding:8px 10px;position:sticky;top:0}
 tr.month-sep .ms-title{font-weight:700;font-size:13px}
 tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
@@ -277,6 +285,11 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 .pcmp-row:last-child{border-bottom:none}
 .pcmp-l{color:#5b6577}.pcmp-v{font-weight:700}
 .pcmp-row .pos{color:#16a34a}.pcmp-row .neg{color:#dc2626}
+.pverbgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;width:100%}
+.pverb{border:1px solid #e7eaf0;border-left:5px solid #64748b;border-radius:0 12px 12px 0;padding:16px 20px;background:#fafbfd}
+.pverb-q{font-size:18px;line-height:1.45;color:#1a2233;font-style:italic}
+.pverb-a{margin-top:10px;font-size:14px;font-weight:700;color:#5b6577;display:flex;align-items:center}
+@media(max-width:680px){.pverbgrid{grid-template-columns:1fr}}
 /* notes présentateur */
 .present-notes{display:none;width:min(1180px,94vw);background:#1a2030;border:1px solid #39415a;border-radius:12px;margin-top:10px;padding:10px}
 .present.notes-on .present-notes{display:block}
@@ -1124,11 +1137,12 @@ if(typeof module!=="undefined" && module.exports){
    ============================================================ */
 const LS_DATA="rsa_data_v2", LS_OBJ="rsa_obj_v2", LS_MAP="rsa_map_v1",
       LS_CLIENTS="rsa_clients_v1", LS_CUR="rsa_curclient_v1", LS_HIST="rsa_hist_v1",
-      LS_NOTES="rsa_notes_v1", LS_BRAND="rsa_brand_v1", LS_EVENTS="rsa_events_v1";
+      LS_NOTES="rsa_notes_v1", LS_BRAND="rsa_brand_v1", LS_EVENTS="rsa_events_v1", LS_VERB="rsa_verbatims_v1";
 // STATE.objectives = { [clientId]: {global,instagram,...} }
 // chaque ligne de STATE.rows possède un champ .client (id)
 // STATE.events = { [clientId]: [{id, year, fromM, toM, label, sentiment:'pos'|'neg'|'neutral'}] }
-let STATE = { rows:[], objectives:{}, mappings:{}, clients:[], currentClient:null, history:[], notes:{}, brand:{}, events:{} };
+// STATE.verbatims = { [clientId]: [{id, author, text, platform, sentiment:'pos'|'neg'|'neutral'}] }
+let STATE = { rows:[], objectives:{}, mappings:{}, clients:[], currentClient:null, history:[], notes:{}, brand:{}, events:{}, verbatims:{} };
 let pending = null;
 let charts = [];
 let dashRatesChart=null, dashVolChart=null;   // réf. pour redessiner les bandes d'événements
@@ -1192,6 +1206,30 @@ function renderEventList(year){
     row.querySelector(".ev-del").onclick=()=>{ STATE.events[STATE.currentClient]=eventsFor().filter(e=>e.id!==id); saveEvents(); touchClient(); renderEventList(year); redrawEventBands(year); };
   });
 }
+const VSENT={pos:{label:"🟢 Positif",color:"#16a34a"},neutral:{label:"⚪ Neutre",color:"#64748b"},neg:{label:"🔴 Négatif",color:"#dc2626"}};
+function renderVerbatims(){
+  const box=$("verbBox"); if(!box) return;
+  const list=verbatimsFor();
+  if(!list.length){ box.innerHTML='<div class="note">Aucun retour. Ajoute un commentaire marquant de la communauté (DM, commentaire, avis…).</div>'; return; }
+  const platOpts=sel=>Object.entries(PLATFORMS).map(([k,v])=>`<option value="${k}" ${k===sel?"selected":""}>${v.label}</option>`).join("");
+  box.innerHTML=list.map(v=>`<div class="verb" data-id="${v.id}" style="border-left-color:${(VSENT[v.sentiment]||VSENT.neutral).color}">
+    <div class="verb-top">
+      <select class="vb-plat">${platOpts(v.platform)}</select>
+      <select class="vb-sent">${Object.entries(VSENT).map(([k,s])=>`<option value="${k}" ${k===v.sentiment?"selected":""}>${s.label}</option>`).join("")}</select>
+      <input type="text" class="vb-author" placeholder="@auteur (optionnel)" value="${escapeHtml(v.author||"")}">
+      <button class="actbtn del vb-del" title="Supprimer">🗑</button>
+    </div>
+    <textarea class="vb-text" placeholder="« Le commentaire ou retour de la communauté… »">${escapeHtml(v.text||"")}</textarea>
+  </div>`).join("");
+  const find=id=>verbatimsFor().find(v=>v.id===id);
+  box.querySelectorAll(".verb").forEach(row=>{ const id=row.dataset.id;
+    row.querySelector(".vb-plat").onchange=e=>{find(id).platform=e.target.value;saveVerbatims();};
+    row.querySelector(".vb-sent").onchange=e=>{find(id).sentiment=e.target.value;row.style.borderLeftColor=(VSENT[e.target.value]||VSENT.neutral).color;saveVerbatims();};
+    row.querySelector(".vb-author").oninput=e=>{find(id).author=e.target.value;saveVerbatims();};
+    row.querySelector(".vb-text").oninput=e=>{find(id).text=e.target.value;saveVerbatims();};
+    row.querySelector(".vb-del").onclick=()=>{STATE.verbatims[STATE.currentClient]=verbatimsFor().filter(v=>v.id!==id);saveVerbatims();touchClient();renderVerbatims();};
+  });
+}
 
 function uid(){ return "c"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 
@@ -1204,6 +1242,7 @@ function load(){
   try{ STATE.notes=JSON.parse(localStorage.getItem(LS_NOTES))||{}; }catch(e){ STATE.notes={}; }
   try{ STATE.brand=JSON.parse(localStorage.getItem(LS_BRAND))||{}; }catch(e){ STATE.brand={}; }
   try{ STATE.events=JSON.parse(localStorage.getItem(LS_EVENTS))||{}; }catch(e){ STATE.events={}; }
+  try{ STATE.verbatims=JSON.parse(localStorage.getItem(LS_VERB))||{}; }catch(e){ STATE.verbatims={}; }
   STATE.currentClient=localStorage.getItem(LS_CUR)||null;
   // migration : enrichit les lignes importées avant l'ajout de nature/influence/url
   let migrated=false;
@@ -1239,6 +1278,8 @@ function saveNotes(){ localStorage.setItem(LS_NOTES, JSON.stringify(STATE.notes)
 function saveBrand(){ localStorage.setItem(LS_BRAND, JSON.stringify(STATE.brand)); }
 function saveEvents(){ localStorage.setItem(LS_EVENTS, JSON.stringify(STATE.events)); }
 function eventsFor(id){ id=id||STATE.currentClient; if(!STATE.events[id]) STATE.events[id]=[]; return STATE.events[id]; }
+function saveVerbatims(){ localStorage.setItem(LS_VERB, JSON.stringify(STATE.verbatims)); }
+function verbatimsFor(id){ id=id||STATE.currentClient; if(!STATE.verbatims[id]) STATE.verbatims[id]=[]; return STATE.verbatims[id]; }
 // horodate la dernière mise à jour d'un client (données ou analyses)
 function touchClient(id){ id=id||STATE.currentClient; const c=STATE.clients.find(x=>x.id===id); if(c){ c.updatedAt=Date.now(); saveClients(); } }
 function lastUpdate(id){ const c=STATE.clients.find(x=>x.id===id); return c&&c.updatedAt||null; }
@@ -1476,9 +1517,19 @@ function loadDemoData(){
   const yr=2026, upTo=6, plats=["instagram","facebook","tiktok","linkedin"];
   const fmts=["Reel recette","Conseil nutrition","Coulisses","UGC","Trend","Bon plan"];
   const profiles=[
+    {name:"Breizh Cola", scale:1.9, eng:1.6, imprObj:4000000, budget:30000, stale:0, gaps:false, infl:true, months:upTo,
+      notes:{context:"Campagne d'activation TikTok + Instagram « #BreizhDanceChallenge » : pic d'engagement en juin, fort relais créateurs.",works:"Le challenge TikTok dépasse les attentes (hook Reels > 58%, engagement ×1,6 vs objectif).",watch:"Capitaliser vite avant l'essoufflement du trend.",reco:"Prolonger le challenge en T3 avec 3 nouveaux créateurs."},
+      events:[{fromM:5,toM:6,label:"#BreizhDanceChallenge",sentiment:"pos"}],
+      verbs:[
+        {author:"@lou.danse",text:"J'ai fait le #BreizhDanceChallenge avec mes potes, on est trop fans 😍🥤",platform:"tiktok",sentiment:"pos"},
+        {author:"@maelle_k",text:"Cette campagne TikTok est partout et franchement elle est super bien faite 👏",platform:"tiktok",sentiment:"pos"},
+        {author:"@theo.run",text:"Le Reel avec le créateur breton 🔥 vous avez assuré",platform:"instagram",sentiment:"pos"},
+        {author:"Commentaire Instagram",text:"Enfin une marque qui parle vraiment à notre génération",platform:"instagram",sentiment:"pos"}]},
     {name:"Bio'Délice", scale:1.5, eng:1.35, imprObj:3000000, budget:36000, stale:0, gaps:false, infl:true, months:upTo,
       notes:{context:"Forte hausse en juin portée par l'activation Coupe du monde + 2 collabs créateurs.",works:"Les Reels recette explosent (hook > 55%).",watch:"Le hold rate Facebook décroche en mai.",reco:"Doubler la cadence de Reels recette en T3."},
-      events:[{fromM:6,toM:7,label:"Coupe du monde 2026",sentiment:"pos"}]},
+      events:[{fromM:6,toM:7,label:"Coupe du monde 2026",sentiment:"pos"}],
+      verbs:[{author:"@chef_julie",text:"Vos recettes me sauvent la semaine, merci 🙏",platform:"instagram",sentiment:"pos"},
+        {author:"@kevin_82",text:"Le packaging a changé ? Je préférais avant…",platform:"facebook",sentiment:"neg"}]},
     {name:"Mareva", scale:0.55, eng:0.7, imprObj:5000000, budget:20000, stale:2, gaps:false, infl:false, months:upTo,
       notes:{watch:"Volume insuffisant face à un objectif annuel ambitieux."}, events:[]},
     {name:"Croq'Local", scale:1.1, eng:1.05, imprObj:2200000, budget:18000, stale:12, gaps:false, infl:true, months:upTo, notes:{}, events:[]},
@@ -1491,7 +1542,7 @@ function loadDemoData(){
       notes:{context:"Budget média volontairement dépassé suite à un test d'audience élargie concluant.",conflict:false}, events:[]},
     {name:"Océalg", scale:0, eng:1, imprObj:1500000, budget:10000, stale:99, gaps:false, infl:false, months:0, notes:{}, events:[]},
   ];
-  STATE.rows=[]; STATE.clients=[]; STATE.objectives={}; STATE.notes={}; STATE.events={}; STATE.history=[];
+  STATE.rows=[]; STATE.clients=[]; STATE.objectives={}; STATE.notes={}; STATE.events={}; STATE.verbatims={}; STATE.history=[];
   profiles.forEach((pr,ci)=>{
     const id="demo"+ci; STATE.clients.push({id,name:pr.name, updatedAt:Date.now()-pr.stale*86400000});
     const o=defaultObjectives(); o.global.impressions=pr.imprObj; o.global.engagement=0.025; o.global.hook=0.42; o.global.hold=0.09;
@@ -1499,6 +1550,7 @@ function loadDemoData(){
     STATE.objectives[id]=o;
     if(pr.notes&&Object.keys(pr.notes).length) STATE.notes[id]=Object.assign({works:"",watch:"",reco:"",context:"",conflict:false},pr.notes);
     if(pr.events&&pr.events.length) STATE.events[id]=pr.events.map((e,ei)=>({id:"ev"+ci+ei,year:yr,fromM:e.fromM,toM:e.toM,label:e.label,sentiment:e.sentiment}));
+    if(pr.verbs&&pr.verbs.length) STATE.verbatims[id]=pr.verbs.map((v,vi)=>({id:"vb"+ci+vi,author:v.author,text:v.text,platform:v.platform,sentiment:v.sentiment}));
     for(let m=1;m<=pr.months;m++){
       if(pr.gaps && (m===2||m===5)) continue;
       plats.forEach(p=>{ const nPosts=p==="linkedin"?2:3;
@@ -1521,7 +1573,7 @@ function loadDemoData(){
   });
   if(!STATE.brand||!STATE.brand.name){ STATE.brand={name:"Tire-Fesses", color:"#3b5bfd"}; saveBrand(); applyBrand(); }
   STATE.currentClient=STATE.clients[0].id;
-  saveData(); saveObj(); saveClients(); saveNotes(); saveEvents(); saveHist();
+  saveData(); saveObj(); saveClients(); saveNotes(); saveEvents(); saveVerbatims(); saveHist();
   renderClientSelect(); $("agYear").value=String(yr);
   if(location.hash.slice(1)==="agency") renderAgency(); else location.hash="agency";
   toast(STATE.clients.length+" clients de démo chargés — explore la Vue agence puis « Ouvrir » un client.");
@@ -1965,6 +2017,12 @@ function renderDashboard(){
         <div class="chart-md"><canvas id="chNature"></canvas></div>
         <div id="natTable" style="margin-top:12px"></div></div>
       <div class="tile b12"><h3>🏆 Les awards</h3><div id="awards"></div></div>
+      <div class="tile b12" id="verbTile">
+        <div class="flex-between" style="margin-bottom:8px">
+          <h3 style="margin:0">💬 Retours de la communauté</h3>
+          <button class="btn sec" id="addVerb" style="padding:5px 10px">+ Ajouter un retour</button></div>
+        <p class="note" style="margin:0 0 10px">Exemples de commentaires / réactions de la communauté (verbatims). Apparaissent dans la présentation et le bilan PDF.</p>
+        <div id="verbBox"></div></div>
       <div class="tile b12"><h3>Détail par campagne</h3><div id="campTable"></div></div>
       <div class="tile b6"><h3>Top contenus — hook rate (≥ 1 000 impr.)</h3><div id="topTable"></div></div>
       <div class="tile b6"><h3>Par plateforme</h3><div id="platTable"></div></div>
@@ -2030,6 +2088,8 @@ function renderDashboard(){
   $("ctxConflict").onchange=e=>{notesFor().conflict=e.target.checked;saveNotes();touchClient();applyCtxStyle();};
   renderEventList(yr);
   $("addEvent").onclick=()=>{ eventsFor().push({id:uid(),year:yr,fromM:1,toM:Math.min(12,(new Date().getMonth()+1)),label:"",sentiment:"neutral"}); saveEvents(); touchClient(); renderEventList(yr); redrawEventBands(yr); };
+  renderVerbatims();
+  $("addVerb").onclick=()=>{ verbatimsFor().push({id:uid(),author:"",text:"",platform:"instagram",sentiment:"pos"}); saveVerbatims(); touchClient(); renderVerbatims(); };
   renderAggTable("campTable", groupBy(rows,"campaign"), "Campagne", obj);
   const tops=groupBy(rows,"creative").filter(g=>g.impressions>=1000)
     .sort((a,b)=>(b.hook_rate||0)-(a.hook_rate||0)).slice(0,15);
@@ -2190,6 +2250,9 @@ function exportBilan(){
   const tops=groupBy(rows,"creative").filter(g=>g.impressions>=1000).sort((a,b)=>(b.hook_rate||0)-(a.hook_rate||0)).slice(0,10);
   const tmp=document.createElement('div'); document.body.appendChild(tmp); renderAwards2(tmp,rows);
   const awInner=tmp.querySelector('.awards'); const awardsHtml=awInner?awInner.innerHTML:'<div class="muted">Pas assez de données pour les awards.</div>'; tmp.remove();
+  const verbs=verbatimsFor().filter(v=>(v.text||"").trim());
+  const verbHtml=verbs.slice(0,8).map(v=>{ const c=(VSENT[v.sentiment]||VSENT.neutral).color;
+    return `<div class="pdfverb" style="border-left-color:${c}"><div class="q">« ${escapeHtml(v.text)} »</div><div class="a">${escapeHtml(v.author||"Communauté")} · ${PLATFORMS[v.platform]?PLATFORMS[v.platform].label:""}</div></div>`; }).join("");
   const genDate=new Date().toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"});
   const foot=`<div class="repfoot"><span>${escapeHtml(b.name||"Reporting social")} — ${escapeHtml(clientName())}</span><span>${platLbl} · ${periodLbl}</span></div>`;
 
@@ -2246,6 +2309,7 @@ function exportBilan(){
         ${kc("Reach cumulé",intf(agg.reach),"Couverture de la période","","")}
       </div>
     </section>
+    ${verbHtml?`<section><h2 class="sec">Retours de la communauté</h2><div class="pdfverbgrid">${verbHtml}</div></section>`:""}
 
     <section class="pbreak"><h2 class="sec">Analyse &amp; recommandations</h2>
       <div class="nb g"><h4>🟢 Ce qui fonctionne</h4><p>${escapeHtml(nt.works||"—")}</p></div>
@@ -2396,6 +2460,13 @@ function buildPresentation(){
       ${bigKpi("Reach cumulé",intf(agg.reach),"Couverture de la période","")}
       ${bigKpi("Engagements",intf(agg.interactions),"Interactions totales","")}
     </div></div>${foot}</div>`, `Croissance abonnés ${(agg.followers>=0?"+":"")+intf(agg.followers)}${folGoal>0?", "+(folPct*100).toFixed(0)+"% de l'objectif":""}.`);
+  // retours de la communauté (verbatims)
+  const verbs=verbatimsFor().filter(v=>(v.text||"").trim());
+  if(verbs.length){ const vcards=verbs.slice(0,6).map(v=>{ const c=(VSENT[v.sentiment]||VSENT.neutral).color;
+      return `<div class="pverb" style="border-left-color:${c}"><div class="pverb-q">« ${escapeHtml(v.text)} »</div><div class="pverb-a"><span class="dot" style="background:${PLATFORMS[v.platform]?PLATFORMS[v.platform].color:'#888'}"></span>${escapeHtml(v.author||"Communauté")}</div></div>`; }).join("");
+    add("verbatims","Retours de la communauté", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Retours de la communauté</h2>
+      <div class="pbody"><div class="pverbgrid">${vcards}</div></div>${foot}</div>`, "Lis 1-2 verbatims marquants pour incarner la performance.");
+  }
   // budget
   if(budget>0||aggCum.spend>0){ const over=budget>0&&aggCum.spend>budget;
     add("budget","Budget média", `<div class="pslide" style="--pc:${PC}"><h2 class="ph2">Budget média</h2>
