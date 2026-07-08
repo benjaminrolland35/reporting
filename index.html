@@ -251,6 +251,15 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 .cchip{font-size:12px;font-weight:600;padding:5px 11px;border-radius:20px}
 .cchip.ok{background:#dcfce7;color:#15803d}
 .cchip.ko{background:#fee2e2;color:#b91c1c}
+/* ---- reportings sauvegardés ---- */
+.snapbanner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  background:#eef2ff;border:1px solid var(--accent);border-left:5px solid var(--accent);border-radius:12px;
+  padding:12px 16px;margin-bottom:18px;font-size:13px}
+.rep-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:8px;background:var(--panel2)}
+.rep-row.open{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.rep-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rep-actions{display:flex;gap:6px;align-items:center;flex:0 0 auto}
 @media(max-width:900px){.hero{min-height:0}.hring{width:72px;height:72px}.hv{font-size:21px}}
 .alertlist{display:flex;flex-direction:column;gap:8px}
 .alertrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
@@ -548,11 +557,18 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
         <div class="field cmpCustom" style="display:none"><label>Réf. année</label><select id="cmpYear"></select></div>
         <div class="field cmpCustom" style="display:none"><label>Réf. du mois</label><select id="cmpFrom"></select></div>
         <div class="field cmpCustom" style="display:none"><label>réf. au mois</label><select id="cmpTo"></select></div>
-        <div class="field" style="margin-left:auto"><label>&nbsp;</label><button class="btn" id="presentBtn">▶ Mode présentation</button></div>
+        <div class="field" style="margin-left:auto"><label>&nbsp;</label><button class="btn sec" id="saveReportBtn" title="Fige les chiffres actuels dans un reporting daté (liste en bas de page)">💾 Sauvegarder</button></div>
+        <div class="field"><label>&nbsp;</label><button class="btn" id="presentBtn">▶ Mode présentation</button></div>
         <div class="field"><label>&nbsp;</label><button class="btn sec" id="exportBilan">🖨 Exporter (PDF)</button></div>
       </div>
     </div>
+    <div id="snapBanner" class="snapbanner" style="display:none"></div>
     <div id="dashContent"></div>
+    <div class="card" id="reportsCard" style="display:none">
+      <h2 style="margin-bottom:4px">📁 Reportings sauvegardés — <span id="repClient"></span></h2>
+      <p class="note">Chaque reporting est un instantané daté : les <b>chiffres restent figés</b> même si tu réimportes des données ensuite — c'est ton historique. Les analyses et annotations restent modifiables. Depuis un reporting ouvert, le PDF et le mode présentation utilisent les chiffres figés.</p>
+      <div id="reportsList"></div>
+    </div>
   </section>
 
   <!-- ================= DATA ================= -->
@@ -1181,12 +1197,15 @@ if(typeof module!=="undefined" && module.exports){
    ============================================================ */
 const LS_DATA="rsa_data_v2", LS_OBJ="rsa_obj_v2", LS_MAP="rsa_map_v1",
       LS_CLIENTS="rsa_clients_v1", LS_CUR="rsa_curclient_v1", LS_HIST="rsa_hist_v1",
-      LS_NOTES="rsa_notes_v1", LS_BRAND="rsa_brand_v1", LS_EVENTS="rsa_events_v1", LS_VERB="rsa_verbatims_v1";
+      LS_NOTES="rsa_notes_v1", LS_BRAND="rsa_brand_v1", LS_EVENTS="rsa_events_v1", LS_VERB="rsa_verbatims_v1", LS_REPORTS="rsa_reports_v1";
 // STATE.objectives = { [clientId]: {global,instagram,...} }
 // chaque ligne de STATE.rows possède un champ .client (id)
 // STATE.events = { [clientId]: [{id, year, fromM, toM, label, sentiment:'pos'|'neg'|'neutral'}] }
 // STATE.verbatims = { [clientId]: [{id, author, text, platform, sentiment:'pos'|'neg'|'neutral'}] }
-let STATE = { rows:[], objectives:{}, mappings:{}, clients:[], currentClient:null, history:[], notes:{}, brand:{}, events:{}, verbatims:{} };
+// STATE.reports = { [clientId]: [snapshots] } — reportings figés (chiffres gelés, annotations éditables)
+let STATE = { rows:[], objectives:{}, mappings:{}, clients:[], currentClient:null, history:[], notes:{}, brand:{}, events:{}, verbatims:{}, reports:{} };
+let SNAP=null;   // reporting sauvegardé actuellement ouvert (mode figé) ; null = données live
+function srcRows(){ return SNAP?SNAP.rows:STATE.rows; }
 let pending = null;
 let charts = [];
 let dashRatesChart=null, dashVolChart=null;   // réf. pour redessiner les bandes d'événements
@@ -1216,7 +1235,7 @@ const eventBandsPlugin={ id:"eventBands",
   }};
 // bandes pour le client/année courants, clampées aux mois visibles
 function eventBandsForYear(year, fromM, toM){
-  return (STATE.events[STATE.currentClient]||[]).filter(e=>e.year===year && e.toM>=fromM && e.fromM<=toM)
+  return (SNAP?SNAP.events:(STATE.events[STATE.currentClient]||[])).filter(e=>e.year===year && e.toM>=fromM && e.fromM<=toM)
     .map(e=>({fromM:Math.max(e.fromM,fromM), toM:Math.min(e.toM,toM), label:e.label, sentiment:e.sentiment}));
 }
 function redrawEventBands(year){
@@ -1288,6 +1307,62 @@ function draftAnalysis(){
   toast("Analyse pré-rédigée — relis et ajuste dans la slide « Analyse & recommandations ».");
 }
 
+/* ---------- reportings sauvegardés (chiffres figés, annotations éditables) ---------- */
+function saveReportSnapshot(){
+  if(SNAP){ alert("Tu es déjà dans un reporting sauvegardé — reviens au live d'abord."); return; }
+  const rows=filteredRows(); if(!rows.length){ alert("Aucune donnée à sauvegarder pour ce filtre."); return; }
+  const yr=Number($("fltYear").value); let f=Number($("fltFrom").value), t=Number($("fltTo").value); if(f>t){const x=f;f=t;t=x;}
+  const defName="Reporting "+MONTHS[f-1]+"–"+MONTHS[t-1]+" "+yr;
+  const name=prompt("Nom du reporting sauvegardé :", defName); if(name===null) return;
+  const cp=o=>JSON.parse(JSON.stringify(o));
+  const rep={id:uid(), name:(name.trim()||defName), createdAt:Date.now(), client:STATE.currentClient,
+    period:{yr, from:f, to:t, platform:$("fltPlatform").value, type:$("fltType").value, nature:$("fltNature").value, influence:$("fltInfluence").value},
+    rows:cp(STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===yr)),
+    objectives:cp(STATE.objectives[STATE.currentClient]||defaultObjectives()),
+    notes:cp(notesFor()), events:cp(eventsFor().filter(e=>e.year===yr)), verbatims:cp(verbatimsFor())};
+  reportsFor().push(rep); saveReports(); renderReportsList();
+  toast("Reporting sauvegardé — chiffres figés, annotations toujours modifiables.");
+}
+function openReport(id){
+  const rep=reportsFor().find(r=>r.id===id); if(!rep) return;
+  SNAP=rep;
+  $("fltYear").value=String(rep.period.yr); $("fltFrom").value=String(rep.period.from); $("fltTo").value=String(rep.period.to);
+  $("fltPlatform").value=rep.period.platform; $("fltType").value=rep.period.type;
+  $("fltNature").value=rep.period.nature; $("fltInfluence").value=rep.period.influence;
+  $("fltCompare").value="none"; document.querySelectorAll(".cmpCustom").forEach(e=>e.style.display="none");
+  renderDashboard(); window.scrollTo(0,0);
+}
+function closeReport(){ SNAP=null; renderDashboard(); }
+function renderSnapBanner(){
+  const b=$("snapBanner"); if(!b) return;
+  if(!SNAP){ b.style.display="none"; b.innerHTML=""; return; }
+  b.style.display="flex";
+  b.innerHTML=`<span>📁 <b>${escapeHtml(SNAP.name)}</b> — figé le ${new Date(SNAP.createdAt).toLocaleDateString("fr-FR")} · chiffres gelés, annotations modifiables.</span>
+    <button class="btn" id="snapExit" style="padding:6px 14px;flex:0 0 auto">✕ Revenir au live</button>`;
+  $("snapExit").onclick=closeReport;
+}
+function renderReportsList(){
+  const card=$("reportsCard"); if(!card) return;
+  card.style.display="";
+  $("repClient").textContent=clientName();
+  const list=(STATE.reports[STATE.currentClient]||[]);
+  if(!list.length){ $("reportsList").innerHTML='<div class="note">Aucun reporting sauvegardé pour ce client. Règle la période puis clique « 💾 Sauvegarder » en haut.</div>'; return; }
+  $("reportsList").innerHTML=list.slice().sort((a,b)=>b.createdAt-a.createdAt).map(r=>`<div class="rep-row ${SNAP&&SNAP.id===r.id?"open":""}">
+    <div class="rep-info"><b>${escapeHtml(r.name)}</b><span class="note">créé le ${new Date(r.createdAt).toLocaleString("fr-FR",{day:"numeric",month:"short",year:"numeric"})} · ${MONTHS[r.period.from-1]}–${MONTHS[r.period.to-1]} ${r.period.yr} · ${r.rows.length} lignes figées</span></div>
+    <div class="rep-actions">
+      ${SNAP&&SNAP.id===r.id?`<button class="btn" data-rclose="1">✕ Fermer</button>`:`<button class="btn sec" data-ropen="${r.id}">📂 Ouvrir</button>`}
+      <button class="actbtn" data-rname="${r.id}" title="Renommer">✏️</button>
+      <button class="actbtn del" data-rdel="${r.id}" title="Supprimer">🗑</button>
+    </div></div>`).join("");
+  $("reportsList").querySelectorAll("[data-ropen]").forEach(b=>b.onclick=()=>openReport(b.dataset.ropen));
+  $("reportsList").querySelectorAll("[data-rclose]").forEach(b=>b.onclick=closeReport);
+  $("reportsList").querySelectorAll("[data-rname]").forEach(b=>b.onclick=()=>{ const rep=reportsFor().find(x=>x.id===b.dataset.rname); if(!rep) return;
+    const n=prompt("Nom du reporting :",rep.name); if(n&&n.trim()){ rep.name=n.trim(); saveReports(); renderReportsList(); renderSnapBanner(); } });
+  $("reportsList").querySelectorAll("[data-rdel]").forEach(b=>b.onclick=()=>{ if(!confirm("Supprimer ce reporting sauvegardé ? (les données live ne sont pas touchées)")) return;
+    const wasOpen=SNAP&&SNAP.id===b.dataset.rdel;
+    STATE.reports[STATE.currentClient]=reportsFor().filter(x=>x.id!==b.dataset.rdel); saveReports();
+    if(wasOpen) closeReport(); else renderReportsList(); });
+}
 const VSENT={pos:{label:"🟢 Positif",color:"#16a34a"},neutral:{label:"⚪ Neutre",color:"#64748b"},neg:{label:"🔴 Négatif",color:"#dc2626"}};
 function renderVerbatims(){
   const box=$("verbBox"); if(!box) return;
@@ -1325,6 +1400,7 @@ function load(){
   try{ STATE.brand=JSON.parse(localStorage.getItem(LS_BRAND))||{}; }catch(e){ STATE.brand={}; }
   try{ STATE.events=JSON.parse(localStorage.getItem(LS_EVENTS))||{}; }catch(e){ STATE.events={}; }
   try{ STATE.verbatims=JSON.parse(localStorage.getItem(LS_VERB))||{}; }catch(e){ STATE.verbatims={}; }
+  try{ STATE.reports=JSON.parse(localStorage.getItem(LS_REPORTS))||{}; }catch(e){ STATE.reports={}; }
   STATE.currentClient=localStorage.getItem(LS_CUR)||null;
   // migration : enrichit les lignes importées avant l'ajout de nature/influence/url
   let migrated=false;
@@ -1349,25 +1425,31 @@ function ensureObjectives(clientId){
     else for(const k in DEFAULT_OBJECTIVES[p]){ if(STATE.objectives[clientId][p][k]===undefined) STATE.objectives[clientId][p][k]=DEFAULT_OBJECTIVES[p][k]; }
   }
 }
-function objFor(platformKey){ return STATE.objectives[STATE.currentClient][platformKey]; }
+function objFor(platformKey){ return SNAP ? (SNAP.objectives[platformKey]||{...OBJ_DEFAULTS}) : STATE.objectives[STATE.currentClient][platformKey]; }
 function clientName(){ const c=STATE.clients.find(c=>c.id===STATE.currentClient); return c?c.name:"—"; }
 
 function saveData(){ localStorage.setItem(LS_DATA, JSON.stringify(STATE.rows)); }
 function saveObj(){ localStorage.setItem(LS_OBJ, JSON.stringify(STATE.objectives)); }
 function saveMap(){ localStorage.setItem(LS_MAP, JSON.stringify(STATE.mappings)); }
 function saveClients(){ localStorage.setItem(LS_CLIENTS, JSON.stringify(STATE.clients)); localStorage.setItem(LS_CUR, STATE.currentClient); }
-function saveNotes(){ localStorage.setItem(LS_NOTES, JSON.stringify(STATE.notes)); }
+function saveNotes(){ if(SNAP){ saveReports(); return; } localStorage.setItem(LS_NOTES, JSON.stringify(STATE.notes)); }
 function saveBrand(){ localStorage.setItem(LS_BRAND, JSON.stringify(STATE.brand)); }
-function saveEvents(){ localStorage.setItem(LS_EVENTS, JSON.stringify(STATE.events)); }
-function eventsFor(id){ id=id||STATE.currentClient; if(!STATE.events[id]) STATE.events[id]=[]; return STATE.events[id]; }
-function saveVerbatims(){ localStorage.setItem(LS_VERB, JSON.stringify(STATE.verbatims)); }
-function verbatimsFor(id){ id=id||STATE.currentClient; if(!STATE.verbatims[id]) STATE.verbatims[id]=[]; return STATE.verbatims[id]; }
-// horodate la dernière mise à jour d'un client (données ou analyses)
-function touchClient(id){ id=id||STATE.currentClient; const c=STATE.clients.find(x=>x.id===id); if(c){ c.updatedAt=Date.now(); saveClients(); } }
+function saveEvents(){ if(SNAP){ saveReports(); return; } localStorage.setItem(LS_EVENTS, JSON.stringify(STATE.events)); }
+function eventsFor(id){ if(SNAP&&!id) return SNAP.events;
+  id=id||STATE.currentClient; if(!STATE.events[id]) STATE.events[id]=[]; return STATE.events[id]; }
+function saveVerbatims(){ if(SNAP){ saveReports(); return; } localStorage.setItem(LS_VERB, JSON.stringify(STATE.verbatims)); }
+function verbatimsFor(id){ if(SNAP&&!id) return SNAP.verbatims;
+  id=id||STATE.currentClient; if(!STATE.verbatims[id]) STATE.verbatims[id]=[]; return STATE.verbatims[id]; }
+function saveReports(){ try{ localStorage.setItem(LS_REPORTS, JSON.stringify(STATE.reports)); }
+  catch(e){ alert("Stockage local plein : supprime d'anciens reportings sauvegardés."); } }
+function reportsFor(id){ id=id||STATE.currentClient; if(!STATE.reports[id]) STATE.reports[id]=[]; return STATE.reports[id]; }
+// horodate la dernière mise à jour d'un client (données ou analyses) — pas en mode figé
+function touchClient(id){ if(SNAP) return; id=id||STATE.currentClient; const c=STATE.clients.find(x=>x.id===id); if(c){ c.updatedAt=Date.now(); saveClients(); } }
 function lastUpdate(id){ const c=STATE.clients.find(x=>x.id===id); return c&&c.updatedAt||null; }
 function timeAgo(ts){ if(!ts) return "jamais"; const d=Math.floor((Date.now()-ts)/86400000);
   if(d<=0) return "aujourd'hui"; if(d===1) return "hier"; if(d<7) return "il y a "+d+" j"; if(d<14) return "il y a 1 sem."; if(d<31) return "il y a "+Math.floor(d/7)+" sem."; return "il y a "+Math.floor(d/30)+" mois"; }
-function notesFor(){ const n=STATE.notes[STATE.currentClient]||(STATE.notes[STATE.currentClient]={works:"",watch:"",reco:""});
+function notesFor(){ const n= SNAP ? (SNAP.notes=SNAP.notes||{works:"",watch:"",reco:""})
+    : (STATE.notes[STATE.currentClient]||(STATE.notes[STATE.currentClient]={works:"",watch:"",reco:""}));
   if(n.context===undefined) n.context="";          // bandeau contexte (justif. variations)
   if(n.conflict===undefined) n.conflict=false;     // marqueur conflit / point de vigilance
   return n; }
@@ -1624,7 +1706,7 @@ function loadDemoData(){
       notes:{context:"Budget média volontairement dépassé suite à un test d'audience élargie concluant.",conflict:false}, events:[]},
     {name:"Océalg", scale:0, eng:1, imprObj:1500000, budget:10000, stale:99, gaps:false, infl:false, months:0, notes:{}, events:[]},
   ];
-  STATE.rows=[]; STATE.clients=[]; STATE.objectives={}; STATE.notes={}; STATE.events={}; STATE.verbatims={}; STATE.history=[];
+  STATE.rows=[]; STATE.clients=[]; STATE.objectives={}; STATE.notes={}; STATE.events={}; STATE.verbatims={}; STATE.reports={}; STATE.history=[]; SNAP=null;
   profiles.forEach((pr,ci)=>{
     const SECT={"Breizh Cola":"Boissons","Bio'Délice":"Food","Mareva":"Food","Croq'Local":"Snacking","Pom'Vert":"Food","Le Fournil d'Émile":"Boulangerie","Tendre Pré":"Food","Saveurs du Marais":"Traiteur","Océalg":"Food"};
     const id="demo"+ci; STATE.clients.push({id,name:pr.name, sector:SECT[pr.name]||"Food", updatedAt:Date.now()-pr.stale*86400000});
@@ -1659,6 +1741,7 @@ function loadDemoData(){
   if(!STATE.brand||!STATE.brand.name){ STATE.brand={name:"Tire-Fesses", color:"#3b5bfd"}; saveBrand(); applyBrand(); }
   STATE.currentClient=STATE.clients[0].id;
   saveData(); saveObj(); saveClients(); saveNotes(); saveEvents(); saveVerbatims(); saveHist();
+  localStorage.setItem(LS_REPORTS,"{}");
   renderClientSelect(); $("agYear").value=String(yr);
   if(location.hash.slice(1)==="agency") renderAgency(); else location.hash="agency";
   toast(STATE.clients.length+" clients de démo chargés — explore la Vue agence puis « Ouvrir » un client.");
@@ -1672,6 +1755,7 @@ function renderClientSelect(){
   const b=$("batchClientSelect"); if(b){ b.innerHTML=opts; b.value=STATE.currentClient; }
 }
 function switchClient(id){
+  if(SNAP){ SNAP=null; renderSnapBanner(); }   // changer de client sort du reporting figé
   if(!id||id===STATE.currentClient){ /* on re-render quand même */ }
   STATE.currentClient=id; ensureObjectives(id); saveClients();
   batchStaging={}; const br=$("batchResult"); if(br) br.innerHTML="";
@@ -1948,7 +2032,7 @@ function filteredRows(){
   const y=Number($("fltYear").value), p=$("fltPlatform").value, t=$("fltType").value;
   let from=Number($("fltFrom").value), to=Number($("fltTo").value);
   if(from>to){ const tmp=from; from=to; to=tmp; }
-  return reconcile(applyNatureInfluence(STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===y
+  return reconcile(applyNatureInfluence(srcRows().filter(r=>r.client===STATE.currentClient && r.year===y
     && r.month>=from && r.month<=to
     && (p==="all"||r.platform===p) && (t==="all"||(r.type||"paid")===t))));
 }
@@ -1964,7 +2048,7 @@ function comparisonRows(){
     const L=to-from+1; cy=y; ct=from-1; cf=Math.max(1,from-L);
     if(ct<1){ cy=y-1; ct=12; cf=Math.max(1,13-L); }
   }
-  const rows=reconcile(applyNatureInfluence(STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===cy
+  const rows=reconcile(applyNatureInfluence(srcRows().filter(r=>r.client===STATE.currentClient && r.year===cy
     && r.month>=cf && r.month<=ct
     && (p==="all"||r.platform===p) && (t==="all"||(r.type||"paid")===t))));
   return {rows, label:MONTHS[cf-1]+"–"+MONTHS[ct-1]+" "+cy};
@@ -1994,7 +2078,7 @@ function renderDashboard(){
 
   // cumul à date (toute l'année, mêmes filtres plateforme/type)
   const yr=Number($("fltYear").value), tflt=$("fltType").value;
-  const cumRows=STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===yr
+  const cumRows=srcRows().filter(r=>r.client===STATE.currentClient && r.year===yr
     && (platform==="all"||r.platform===platform) && (tflt==="all"||(r.type||"paid")===tflt));
   const aggCum=aggregate(reconcile(cumRows));
   const platKeys=["instagram","facebook","tiktok","linkedin","youtube"];
@@ -2317,6 +2401,7 @@ function renderDashboard(){
       inflTops.map(g=>{ const u=cleanUrl(g.url); const nm=u?`<a href="${escapeHtml(u)}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">${escapeHtml(g.name)} ↗</a>`:escapeHtml(g.name);
         return `<tr><td class="nm" title="${escapeHtml(g.name)}">${linkBtn(g)} ${previewBtn(g)} <span class="dot" style="background:${PLATFORMS[g.platform].color}"></span>${nm}</td><td class="num">${intf(g.impressions)}</td><td class="num">${g.creator_cost>0?eur(g.creator_cost):"—"}</td><td class="num">${eur(emv(g.impressions))}</td><td class="num">${pct(g.engagement_rate)}</td></tr>`;}).join("")
     }</tbody></table>`; }
+  renderReportsList(); renderSnapBanner();
 }
 
 function renderAwards(elId, rows){
@@ -2366,7 +2451,7 @@ function exportBilan(){
   const PC=(b.color&&/^#/.test(b.color))?b.color:"#3b5bfd";
 
   // cumul année (mêmes filtres plateforme/type) + objectif annuel
-  const cumRows=STATE.rows.filter(r=>r.client===STATE.currentClient && r.year===yr
+  const cumRows=srcRows().filter(r=>r.client===STATE.currentClient && r.year===yr
     && (platform==="all"||r.platform===platform) && (tflt==="all"||(r.type||"paid")===tflt));
   const aggCum=aggregate(reconcile(cumRows));
   const platKeys=["instagram","facebook","tiktok","linkedin","youtube"];
@@ -2512,6 +2597,7 @@ function exportBilan(){
 // variante de renderAwards qui écrit dans un élément donné (pour le PDF)
 function renderAwards2(el, rows){ el.id="__awtmp"; renderAwards("__awtmp", rows); el.removeAttribute("id"); }
 $("exportBilan").onclick=exportBilan;
+$("saveReportBtn").onclick=saveReportSnapshot;
 
 /* ---------- mode présentation (diaporama visio) ---------- */
 let presSlides=[], presIdx=0;
@@ -2525,7 +2611,7 @@ function buildPresentation(){
   const tflt=$("fltType").value;
   const b=STATE.brand||{}, PC=(b.color&&/^#/.test(b.color))?b.color:"#3b5bfd", brandName=b.name||"Reporting social", nt=notesFor();
   const cmp=comparisonRows(), aggPrev=(cmp&&cmp.rows.length)?aggregate(cmp.rows):null, cmpLabel=cmp?cmp.label:null;
-  const cumRows=STATE.rows.filter(r=>r.client===STATE.currentClient&&r.year===yr&&(platform==="all"||r.platform===platform)&&(tflt==="all"||(r.type||"paid")===tflt));
+  const cumRows=srcRows().filter(r=>r.client===STATE.currentClient&&r.year===yr&&(platform==="all"||r.platform===platform)&&(tflt==="all"||(r.type||"paid")===tflt));
   const aggCum=aggregate(reconcile(cumRows));
   const platKeys=["instagram","facebook","tiktok","linkedin","youtube"], sumObj=k=>platKeys.reduce((s,p)=>s+(objFor(p)[k]||0),0);
   const budget=platform==="all"?sumObj("media_budget"):obj.media_budget, budgetPct=budget>0?aggCum.spend/budget:null;
