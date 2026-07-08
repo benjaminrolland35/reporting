@@ -197,6 +197,12 @@ td.nm{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .verb-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
 .verb-top select{min-width:0;padding:6px 8px} .verb-top .vb-author{flex:1 1 160px;min-width:0}
 .verb textarea.vb-text{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:9px 11px;font:inherit;font-size:13px;resize:vertical;min-height:48px}
+details.adv>summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);padding:10px 12px;background:var(--panel2);border:1px dashed var(--line);border-radius:9px;list-style:none}
+details.adv[open]>summary{border-style:solid;border-radius:9px 9px 0 0}
+details.adv>summary::-webkit-details-marker{display:none}
+details.adv[open]{border:1px solid var(--line);border-radius:9px}
+details.adv[open]>div,details.adv[open]>h3,details.adv[open]>details{margin-left:12px;margin-right:12px}
+details.adv[open]>details{margin-bottom:12px}
 tr.month-sep td{background:var(--panel2);border-top:2px solid var(--line);border-bottom:1px solid var(--line);padding:8px 10px;position:sticky;top:0}
 tr.month-sep .ms-title{font-weight:700;font-size:13px}
 tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
@@ -214,6 +220,31 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 .cmp-d{font-size:11px;font-weight:600;margin-left:6px;vertical-align:middle}
 .cmp-d.good{color:var(--green)}.cmp-d.bad{color:var(--red)}
 @media(max-width:760px){.cmp2col{grid-template-columns:1fr}.cmp-kgrid{grid-template-columns:1fr 1fr}}
+/* ---- hero « objectifs au rendez-vous ? » ---- */
+.hero{display:flex;align-items:center;gap:14px;min-height:118px}
+.hring{--p:0;width:88px;height:88px;border-radius:50%;flex:0 0 auto;position:relative;
+  background:conic-gradient(var(--muted) calc(var(--p)*1%), var(--panel2) 0);
+  display:flex;align-items:center;justify-content:center}
+.hring.good{background:conic-gradient(var(--green) calc(var(--p)*1%), var(--panel2) 0)}
+.hring.warn{background:conic-gradient(var(--amber) calc(var(--p)*1%), var(--panel2) 0)}
+.hring.bad{background:conic-gradient(var(--red) calc(var(--p)*1%), var(--panel2) 0)}
+.hring::before{content:"";position:absolute;inset:9px;background:var(--panel);border-radius:50%}
+.hring b{position:relative;font-size:15px;letter-spacing:-.01em}
+.hinfo{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+.hv{font-size:25px;font-weight:800;letter-spacing:-.02em}
+.hs{font-size:11px;color:var(--muted);line-height:1.35}
+.hbadge{margin-top:5px;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;width:max-content;background:var(--panel2);color:var(--muted)}
+.hbadge.good{background:#dcfce7;color:#15803d}
+.hbadge.warn{background:#fef3c7;color:#b45309}
+.hbadge.bad{background:#fee2e2;color:#b91c1c}
+/* ---- diagnostic ---- */
+.diag{border-left:4px solid var(--amber)}
+.diag-list{display:flex;flex-direction:column;gap:8px}
+.diag-row{display:flex;gap:10px;align-items:baseline;font-size:13px;padding:9px 12px;border-radius:8px;background:var(--panel2);border-left:3px solid var(--amber);line-height:1.45}
+.diag-row.bad{border-left-color:var(--red);background:#fef2f2}
+.diag-kpi{flex:0 0 auto;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:2px 8px}
+@media(max-width:900px){.hero{min-height:0}.hring{width:72px;height:72px}.hv{font-size:21px}}
 .alertlist{display:flex;flex-direction:column;gap:8px}
 .alertrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
 .alertrow .aname{min-width:140px;flex:0 0 auto}
@@ -569,7 +600,7 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
     <div class="card">
       <h2>Objectifs annuels — <span id="objClientName"></span></h2>
       <p class="note">Objectifs propres à ce client. %= Engagement/Hook/Hold ; Impressions & Budget média = totaux annuels visés ; Abonnés = total actuel et objectif (par plateforme).</p>
-      <div style="overflow-x:auto"><table><thead><tr><th>Plateforme</th><th class="num">Engagement %</th><th class="num">Impressions</th><th class="num">Hook %</th><th class="num">Hold %</th><th class="num">Budget média €</th><th class="num">Abonnés actuels</th><th class="num">Objectif abonnés</th></tr></thead>
+      <div style="overflow-x:auto"><table><thead><tr><th>Plateforme</th><th class="num">Engagement %</th><th class="num">Impressions</th><th class="num">Couverture</th><th class="num">CPM max €</th><th class="num">Hook %</th><th class="num">Hold %</th><th class="num">Budget média €</th><th class="num">Abonnés actuels</th><th class="num">Objectif abonnés</th></tr></thead>
       <tbody id="objBody"></tbody></table></div>
       <div style="margin-top:14px"><button class="btn" id="saveObj">Enregistrer</button></div>
     </div>
@@ -595,7 +626,7 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
       <h2 id="rowModalTitle" style="margin:0">Ajouter un post</h2>
       <button class="btn sec" id="rowModalClose" style="padding:6px 12px">✕</button>
     </div>
-    <p class="note">Saisis les chiffres réels (paid + organique cumulés si tu veux refléter la vraie performance). Pour un post <b>non sponsorisé</b>, laisse la dépense à 0. Les taux (hook/hold/engagement, CPM/CPE) sont <b>recalculés automatiquement</b> à partir des volumes ci-dessous. Si tu ne connais qu'un pourcentage, force-le dans « Forcer les taux ».</p>
+    <p class="note">L'essentiel suffit : plateforme, mois, nom et chiffres clés. Les taux (hook/hold/engagement, CPM) sont <b>recalculés automatiquement</b>. Le reste (engagement détaillé, vidéo, influence…) est dans « Plus de détails ».</p>
 
     <div class="row">
       <div class="field"><label>Plateforme</label><select id="rf_platform"></select></div>
@@ -610,60 +641,61 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
     <div class="row">
       <div class="field" style="flex:1 1 100%"><label>Lien du post (URL réseau social)</label><input type="text" id="rf_url" placeholder="https://www.instagram.com/reel/…"></div>
     </div>
-    <div class="row">
-      <div class="field" style="flex:1 1 100%"><label>Visuel — vidéo/image (pour l'aperçu dans le dashboard)</label><input type="text" id="rf_media" placeholder="Lien direct .mp4/.jpg, ou URL YouTube/TikTok/Instagram… (sinon = le lien du post)"></div>
-    </div>
-    <div class="row" style="align-items:flex-end">
-      <div class="field"><label>Nature</label><select id="rf_nature"><option value="filrouge">Fil rouge</option><option value="activation">Activation</option></select></div>
-      <div class="field"><label>Format</label><select id="rf_format"></select></div>
-      <div class="field" style="flex:1 1 auto"><label>&nbsp;</label>
-        <label style="display:flex;flex-direction:row;align-items:center;gap:8px;color:var(--txt);font-weight:500;cursor:pointer;padding:9px 0">
-          <input type="checkbox" id="rf_influence" style="width:18px;height:18px;min-width:0;margin:0"> Contenu influence / créateur</label></div>
-      <div class="field"><label>Coût créateur € (influence)</label><input type="number" id="rf_creator_cost" min="0" step="1" placeholder="0"></div>
-    </div>
-    <div class="row" style="margin-top:-4px">
-      <div class="field" style="flex:1 1 auto"><label>Diffusion</label>
-        <label style="display:flex;flex-direction:row;align-items:center;gap:8px;color:var(--txt);font-weight:500;cursor:pointer;padding:9px 0">
-          <input type="checkbox" id="rf_darkpost" style="width:18px;height:18px;min-width:0;margin:0"> Dark post (annonce hors feed) — décoche si c'est un boost / post dans le feed</label></div>
-    </div>
 
-    <h3 style="margin:14px 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Volumes</h3>
+    <h3 style="margin:14px 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Les chiffres clés</h3>
     <div class="row">
       <div class="field"><label>Impressions</label><input type="number" id="rf_impressions" min="0" placeholder="0"></div>
-      <div class="field"><label>Reach / couverture</label><input type="number" id="rf_reach" min="0" placeholder="0"></div>
+      <div class="field"><label>Couverture (reach)</label><input type="number" id="rf_reach" min="0" placeholder="0"></div>
       <div class="field"><label>Dépense média €</label><input type="number" id="rf_spend" min="0" step="0.01" placeholder="0"></div>
-    </div>
-
-    <h3 style="margin:14px 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Engagement</h3>
-    <div class="row">
-      <div class="field"><label>J'aime / réactions</label><input type="number" id="rf_likes" min="0" placeholder="0"></div>
-      <div class="field"><label>Commentaires</label><input type="number" id="rf_comments" min="0" placeholder="0"></div>
-      <div class="field"><label>Partages</label><input type="number" id="rf_shares" min="0" placeholder="0"></div>
-      <div class="field"><label>Enregistrements</label><input type="number" id="rf_saves" min="0" placeholder="0"></div>
-    </div>
-    <div class="row">
-      <div class="field"><label>Interactions totales (sinon = somme)</label><input type="number" id="rf_interactions" min="0" placeholder="auto"></div>
       <div class="field"><label>Abonnés nets</label><input type="number" id="rf_followers" placeholder="0"></div>
-      <div class="field"><label>Visites de profil</label><input type="number" id="rf_profile_views" min="0" placeholder="0"></div>
     </div>
 
-    <h3 style="margin:14px 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Vidéo</h3>
-    <div class="row">
-      <div class="field"><label>Vues hook</label><input type="number" id="rf_hook_views" min="0" placeholder="0"></div>
-      <div class="field"><label>Vues hold / ThruPlay</label><input type="number" id="rf_hold_views" min="0" placeholder="0"></div>
-      <div class="field"><label>Complétions (100%)</label><input type="number" id="rf_completions" min="0" placeholder="0"></div>
-      <div class="field"><label>Durée lecture moy. (s)</label><input type="number" id="rf_watch_time" min="0" step="0.1" placeholder="0"></div>
-    </div>
-
-    <details style="margin-top:10px">
-      <summary style="cursor:pointer;color:var(--muted);font-size:13px">Forcer les taux (optionnel)</summary>
-      <p class="note">À utiliser uniquement si tu connais le pourcentage sans avoir les volumes (ex : reporting influence qui ne donne que le taux d'engagement). Laisse vide pour un calcul automatique.</p>
-      <div class="row">
-        <div class="field"><label>Hook rate %</label><input type="number" id="rf_hookrate" min="0" step="0.1" placeholder="auto"></div>
-        <div class="field"><label>Hold rate %</label><input type="number" id="rf_holdrate" min="0" step="0.1" placeholder="auto"></div>
-        <div class="field"><label>Engagement %</label><input type="number" id="rf_engrate" min="0" step="0.1" placeholder="auto"></div>
-        <div class="field"><label>CPE €</label><input type="number" id="rf_cpe" min="0" step="0.01" placeholder="auto"></div>
+    <details class="adv" style="margin-top:12px">
+      <summary>➕ Plus de détails — engagement, vidéo, influence, visuel…</summary>
+      <div class="row" style="margin-top:12px">
+        <div class="field" style="flex:1 1 100%"><label>Visuel — vidéo/image (pour l'aperçu dans le dashboard)</label><input type="text" id="rf_media" placeholder="Lien direct .mp4/.jpg, ou URL YouTube/TikTok/Instagram… (sinon = le lien du post)"></div>
       </div>
+      <div class="row" style="align-items:flex-end">
+        <div class="field"><label>Nature</label><select id="rf_nature"><option value="filrouge">Fil rouge</option><option value="activation">Activation</option></select></div>
+        <div class="field"><label>Format</label><select id="rf_format"></select></div>
+        <div class="field" style="flex:1 1 auto"><label>&nbsp;</label>
+          <label style="display:flex;flex-direction:row;align-items:center;gap:8px;color:var(--txt);font-weight:500;cursor:pointer;padding:9px 0">
+            <input type="checkbox" id="rf_influence" style="width:18px;height:18px;min-width:0;margin:0"> Contenu influence / créateur</label></div>
+        <div class="field"><label>Coût créateur € (influence)</label><input type="number" id="rf_creator_cost" min="0" step="1" placeholder="0"></div>
+      </div>
+      <div class="row" style="margin-top:-4px">
+        <div class="field" style="flex:1 1 auto"><label>Diffusion</label>
+          <label style="display:flex;flex-direction:row;align-items:center;gap:8px;color:var(--txt);font-weight:500;cursor:pointer;padding:9px 0">
+            <input type="checkbox" id="rf_darkpost" style="width:18px;height:18px;min-width:0;margin:0"> Dark post (annonce hors feed) — décoche si c'est un boost / post dans le feed</label></div>
+      </div>
+      <h3 style="margin:14px 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Engagement</h3>
+      <div class="row">
+        <div class="field"><label>J'aime / réactions</label><input type="number" id="rf_likes" min="0" placeholder="0"></div>
+        <div class="field"><label>Commentaires</label><input type="number" id="rf_comments" min="0" placeholder="0"></div>
+        <div class="field"><label>Partages</label><input type="number" id="rf_shares" min="0" placeholder="0"></div>
+        <div class="field"><label>Enregistrements</label><input type="number" id="rf_saves" min="0" placeholder="0"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Interactions totales (sinon = somme)</label><input type="number" id="rf_interactions" min="0" placeholder="auto"></div>
+        <div class="field"><label>Visites de profil</label><input type="number" id="rf_profile_views" min="0" placeholder="0"></div>
+      </div>
+      <h3 style="margin:14px 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Vidéo</h3>
+      <div class="row">
+        <div class="field"><label>Vues hook</label><input type="number" id="rf_hook_views" min="0" placeholder="0"></div>
+        <div class="field"><label>Vues hold / ThruPlay</label><input type="number" id="rf_hold_views" min="0" placeholder="0"></div>
+        <div class="field"><label>Complétions (100%)</label><input type="number" id="rf_completions" min="0" placeholder="0"></div>
+        <div class="field"><label>Durée lecture moy. (s)</label><input type="number" id="rf_watch_time" min="0" step="0.1" placeholder="0"></div>
+      </div>
+      <details style="margin-top:10px">
+        <summary style="cursor:pointer;color:var(--muted);font-size:13px">Forcer les taux (optionnel)</summary>
+        <p class="note">À utiliser uniquement si tu connais le pourcentage sans avoir les volumes (ex : reporting influence qui ne donne que le taux d'engagement). Laisse vide pour un calcul automatique.</p>
+        <div class="row">
+          <div class="field"><label>Hook rate %</label><input type="number" id="rf_hookrate" min="0" step="0.1" placeholder="auto"></div>
+          <div class="field"><label>Hold rate %</label><input type="number" id="rf_holdrate" min="0" step="0.1" placeholder="auto"></div>
+          <div class="field"><label>Engagement %</label><input type="number" id="rf_engrate" min="0" step="0.1" placeholder="auto"></div>
+          <div class="field"><label>CPE €</label><input type="number" id="rf_cpe" min="0" step="0.01" placeholder="auto"></div>
+        </div>
+      </details>
     </details>
 
     <div class="row" style="margin-top:14px">
@@ -848,7 +880,7 @@ const ALIASES = {
 
 // Objectifs par défaut par plateforme (engagement/hook/hold en fraction ; impressions = nombre annuel)
 // 'global' = objectif toutes plateformes confondues. impressions:0 => non défini.
-const OBJ_DEFAULTS={engagement:0.02, impressions:0, hook:0.40, hold:0.09, media_budget:0, followers_total:0, followers_goal:0};
+const OBJ_DEFAULTS={engagement:0.02, impressions:0, reach:0, cpm_max:0, hook:0.40, hold:0.09, media_budget:0, followers_total:0, followers_goal:0};
 const DEFAULT_OBJECTIVES = {
   global:   {...OBJ_DEFAULTS, hook:0.40, hold:0.09},
   instagram:{...OBJ_DEFAULTS, hook:0.45, hold:0.10},
@@ -1546,6 +1578,8 @@ function loadDemoData(){
   profiles.forEach((pr,ci)=>{
     const id="demo"+ci; STATE.clients.push({id,name:pr.name, updatedAt:Date.now()-pr.stale*86400000});
     const o=defaultObjectives(); o.global.impressions=pr.imprObj; o.global.engagement=0.025; o.global.hook=0.42; o.global.hold=0.09;
+    o.global.reach=Math.round(pr.imprObj*0.7); o.global.cpm_max=9;
+    ["instagram","facebook","tiktok","linkedin"].forEach(p=>{ o[p].impressions=Math.round(pr.imprObj/4); o[p].reach=Math.round(pr.imprObj*0.7/4); o[p].cpm_max=9; });
     plats.forEach(p=>{ o[p].media_budget=Math.round(pr.budget/4); o[p].followers_goal=ri(30000,80000); o[p].followers_total=Math.round(o[p].followers_goal*(0.55+rnd()*0.4)); });
     STATE.objectives[id]=o;
     if(pr.notes&&Object.keys(pr.notes).length) STATE.notes[id]=Object.assign({works:"",watch:"",reco:"",context:"",conflict:false},pr.notes);
@@ -1967,6 +2001,62 @@ function renderDashboard(){
         <div style="font-size:14px"><b>Budget média dépassé</b> — ${eur(aggCum.spend)} consommés sur ${eur(budget)} alloués
         (<b class="bad">+${eur(aggCum.spend-budget)}</b>, soit ${(budgetPct*100).toFixed(0)} % du budget annuel).</div></div>`
     : "";
+
+  // ---- « Objectifs au rendez-vous ? » : impressions / couverture / abonnés / CPM (cumul année vs objectifs annuels) ----
+  const cumR=reconcile(cumRows);
+  const monthsData=[...new Set(cumR.map(r=>r.month))];
+  const elapsed=Math.max(1, monthsData.length?Math.max(...monthsData):1);
+  const projFactor=12/elapsed;
+  const objImpr=obj.impressions||0, objReach=obj.reach||0, objCpmMax=obj.cpm_max||0;
+  const projImpr=aggCum.impressions*projFactor, projReach=aggCum.reach*projFactor;
+  const stProj=(proj,t)=> t>0 ? (proj>=t?"good":proj>=t*0.8?"warn":"bad") : "";
+  const stImpr=stProj(projImpr,objImpr), stReach=stProj(projReach,objReach);
+  const folPace=folGoal>0?(folPct/(elapsed/12)):null;   // rythme vs part de l'année écoulée
+  const stFol=folGoal>0?(folPct>=1||folPace>=0.9?"good":folPace>=0.7?"warn":"bad"):"";
+  const cpmYtd=aggCum.cpm;
+  const stCpm=(objCpmMax>0&&cpmYtd!=null)?(cpmYtd<=objCpmMax?"good":cpmYtd<=objCpmMax*1.15?"warn":"bad"):"";
+  const HB={good:"✓ Au rendez-vous",warn:"≈ Limite",bad:"✗ Problème","":"Objectif à définir"};
+  const hero=(label,val,sub,st,ratio)=>{ const p=ratio==null?0:Math.min(100,Math.max(0,ratio*100));
+    return `<div class="tile b3 hero ${st}">
+      <div class="hring ${st}" style="--p:${p.toFixed(0)}"><b>${ratio==null?"—":p.toFixed(0)+"%"}</b></div>
+      <div class="hinfo"><span class="hl">${label}</span><span class="hv">${val}</span><span class="hs">${sub}</span>
+        <span class="hbadge ${st}">${HB[st]}</span></div></div>`; };
+  const heroRow=
+    hero("Impressions",intf(aggCum.impressions), objImpr>0?`obj ${intf(objImpr)} · proj. ${intf(projImpr)}`:"objectif annuel non défini", stImpr, objImpr>0?aggCum.impressions/objImpr:null)+
+    hero("Couverture",intf(aggCum.reach), objReach>0?`obj ${intf(objReach)} · proj. ${intf(projReach)}`:"objectif non défini (Objectifs → Couverture)", stReach, objReach>0?aggCum.reach/objReach:null)+
+    hero("Abonnés",intf(folTotal||0), folGoal>0?`obj ${intf(folGoal)} · ${(agg.followers>=0?"+":"")+intf(agg.followers)} sur la période`:"objectif abonnés non défini", stFol, folGoal>0?folPct:null)+
+    hero("CPM",cpmYtd!=null?cpmYtd.toFixed(2)+" €":"—", objCpmMax>0?`max visé ${objCpmMax.toFixed(2)} € (année)`:"CPM max non défini (Objectifs)", stCpm, (objCpmMax>0&&cpmYtd)?Math.min(1,objCpmMax/cpmYtd):null);
+
+  // ---- diagnostic : d'où vient le problème ? ----
+  const findings=[];
+  const addF=(kpi,sev,msg)=>findings.push({kpi,sev,msg});
+  const platCum=groupBy(cumR,"platform");
+  if(["warn","bad"].includes(stImpr)||["warn","bad"].includes(stReach)){
+    platKeys.forEach(p=>{ const po=objFor(p); const g=platCum.find(x=>x.platform===p);
+      [["impressions","Impressions",po.impressions],["reach","Couverture",po.reach]].forEach(([k,lbl,t])=>{
+        if(t>0){ const cur=g?g[k]:0, proj=cur*projFactor;
+          if(proj<t*0.8) addF(lbl, proj<t*0.6?"bad":"warn",
+            `<b>${PLATFORMS[p].label}</b> est en retard : proj. <b>${intf(proj)}</b> / objectif ${intf(t)} (${Math.round(proj/t*100)}%)`); } });
+    });
+    const ms=monthlySeries(cumR).filter(s=>s.month<=elapsed);
+    const avgM=ms.reduce((s,x)=>s+x.impressions,0)/Math.max(1,ms.length);
+    const dips=ms.filter(s=>s.impressions<avgM*0.55).map(s=>s.label);
+    if(dips.length) addF("Impressions","warn",`Mois creux : <b>${dips.join(", ")}</b> (volume < 55 % de la moyenne) — vérifier la cadence de publication ou la diffusion paid`);
+  }
+  if(["warn","bad"].includes(stFol)){
+    platKeys.forEach(p=>{ const po=objFor(p); if(po.followers_goal>0){ const pc=po.followers_total/po.followers_goal;
+      if(pc/(elapsed/12)<0.7) addF("Abonnés","warn",`<b>${PLATFORMS[p].label}</b> : ${intf(po.followers_total)} abonnés, seulement ${(pc*100).toFixed(0)} % de l'objectif ${intf(po.followers_goal)}`); } });
+  }
+  if(["warn","bad"].includes(stCpm)){
+    platCum.filter(g=>g.cpm!=null&&g.spend>0).sort((a,b)=>b.cpm-a.cpm).slice(0,2).forEach(g=>{
+      if(g.cpm>objCpmMax) addF("CPM", g.cpm>objCpmMax*1.3?"bad":"warn",
+        `<b>${PLATFORMS[g.platform].label}</b> tire le CPM vers le haut : <b>${g.cpm.toFixed(2)} €</b> (max visé ${objCpmMax.toFixed(2)} €)`); });
+    const costly=groupBy(cumR,"campaign").filter(g=>g.spend>300&&g.impressions>1000&&g.cpm!=null).sort((a,b)=>b.cpm-a.cpm)[0];
+    if(costly&&costly.cpm>objCpmMax) addF("CPM","warn",`Campagne la plus chère : <b>${escapeHtml(costly.name)}</b> à ${costly.cpm.toFixed(2)} € de CPM (${eur(costly.spend)} dépensés)`);
+  }
+  const diagTile = findings.length ? `<div class="tile b12 diag"><h3>🩺 D'où vient le problème ?</h3>
+    <div class="diag-list">${findings.map(f=>`<div class="diag-row ${f.sev}"><span class="diag-kpi">${f.kpi}</span><span>${f.msg}</span></div>`).join("")}</div></div>` : "";
+
   box.innerHTML=`
     <div class="bento">
       <div class="tile b12" id="ctxBanner">
@@ -1987,15 +2077,17 @@ function renderDashboard(){
         <div style="font-size:15px"><b>${escapeHtml(clientName())}</b> · ${platLbl}${reconcileOn()?' · <span class="tag" style="border-color:var(--accent);color:var(--accent)" title="Pour un contenu présent en Paid et Organique, le plus gros chiffre est retenu (anti-doublon BM / Business Suite)">⚖ paid/orga réconcilié</span>':''}</div>
         <div style="color:var(--muted);text-align:right">${periodLbl}${cmpLabel?`<br><span style="font-size:11px">▲▼ comparé à ${cmpLabel}</span>`:""}</div></div>
       ${budgetWarn}
+      <div class="tile b12" style="padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+        <h3 style="margin:0">🎯 Objectifs ${yr} — au rendez-vous ?</h3>
+        <span class="note">Cumul année vs objectifs annuels · proj. = atterrissage fin d'année au rythme actuel</span></div>
+      ${heroRow}
+      ${diagTile}
       ${cmpBlock}
-      ${mTile("b3","Engagement",pct(agg.engagement_rate),"objectif "+pct(obj.engagement)+dl(agg.engagement_rate,aggPrev&&aggPrev.engagement_rate,true),colorFor(agg.engagement_rate,obj.engagement),obj.engagement?agg.engagement_rate/obj.engagement:null)}
-      ${mTile("b3","Hook rate",pct(agg.hook_rate),"objectif "+pct(obj.hook)+dl(agg.hook_rate,aggPrev&&aggPrev.hook_rate,true),colorFor(agg.hook_rate,obj.hook),(obj.hook&&agg.hook_rate!=null)?agg.hook_rate/obj.hook:null)}
-      ${mTile("b3","Hold rate",pct(agg.hold_rate),"objectif "+pct(obj.hold)+dl(agg.hold_rate,aggPrev&&aggPrev.hold_rate,true),colorFor(agg.hold_rate,obj.hold),(obj.hold&&agg.hold_rate!=null)?agg.hold_rate/obj.hold:null)}
-      ${mTile("b3","Impressions (période)",intf(agg.impressions),"cumul année : "+intf(aggCum.impressions)+dl(agg.impressions,aggPrev&&aggPrev.impressions,false),"",null)}
-      ${mTile("b4","Budget média",eur(aggCum.spend),budget>0?(budgetPct>1?"⚠ Dépassé de "+eur(aggCum.spend-budget)+" / "+eur(budget):(budgetPct*100).toFixed(0)+"% du budget "+eur(budget)):"budget non défini",budgetPct===null?"":(budgetPct>1?"bad":budgetPct>=.8?"warn":"good"),budgetPct)}
-      ${mTile("b4","CPM moyen",agg.cpm!==null?agg.cpm.toFixed(2)+" €":"—","coût pour 1000 impressions","",null)}
-      ${mTile("b4","CPE moyen",agg.cpe!==null?agg.cpe.toFixed(2)+" €":"—","coût par engagement","",null)}
-      <div class="tile b4"><div class="metric"><span class="lbl">Mix de contenus (période)</span>
+      ${mTile("b4","Engagement",pct(agg.engagement_rate),"objectif "+pct(obj.engagement)+dl(agg.engagement_rate,aggPrev&&aggPrev.engagement_rate,true),colorFor(agg.engagement_rate,obj.engagement),obj.engagement?agg.engagement_rate/obj.engagement:null)}
+      ${mTile("b4","Hook rate",pct(agg.hook_rate),"objectif "+pct(obj.hook)+dl(agg.hook_rate,aggPrev&&aggPrev.hook_rate,true),colorFor(agg.hook_rate,obj.hook),(obj.hook&&agg.hook_rate!=null)?agg.hook_rate/obj.hook:null)}
+      ${mTile("b4","Hold rate",pct(agg.hold_rate),"objectif "+pct(obj.hold)+dl(agg.hold_rate,aggPrev&&aggPrev.hold_rate,true),colorFor(agg.hold_rate,obj.hold),(obj.hold&&agg.hold_rate!=null)?agg.hold_rate/obj.hold:null)}
+      ${mTile("b6","Budget média",eur(aggCum.spend),budget>0?(budgetPct>1?"⚠ Dépassé de "+eur(aggCum.spend-budget)+" / "+eur(budget):(budgetPct*100).toFixed(0)+"% du budget "+eur(budget)):"budget non défini",budgetPct===null?"":(budgetPct>1?"bad":budgetPct>=.8?"warn":"good"),budgetPct)}
+      <div class="tile b6"><div class="metric"><span class="lbl">Mix de contenus (période)</span>
         <span class="val" style="font-size:22px">${intf(nOrg+nDark+nBoost)} <span style="font-size:12px;color:var(--muted)">publications</span></span>
         <span class="sub" style="margin-top:6px;line-height:1.7">
           <span class="tag" style="border-color:var(--green);color:var(--green)">${nOrg} organique${nOrg>1?"s":""}</span>
@@ -2006,11 +2098,6 @@ function renderDashboard(){
       <div class="tile b4"><h3>Impressions par plateforme</h3><div class="chart-sm" id="wrapDoImp"><canvas id="chDoImp"></canvas></div></div>
       <div class="tile b8"><h3>Évolution — Impressions & Dépense</h3><div class="chart-md"><canvas id="chVol"></canvas></div></div>
       <div class="tile b4"><h3>Dépense par plateforme</h3><div class="chart-sm" id="wrapDoSp"><canvas id="chDoSp"></canvas></div></div>
-      <div class="tile b4"><div class="metric"><span class="lbl">Croissance abonnés (période)</span>
-        <span class="val">${(agg.followers>=0?"+":"")+intf(agg.followers)}</span>
-        <span class="sub">${folTotal>0?"total "+intf(folTotal)+(folGoal>0?" / objectif "+intf(folGoal)+" ("+(folPct*100).toFixed(0)+"%)":""):"total abonnés non saisi"}</span>
-        ${folPct!=null?`<span class="bar"><i style="width:${Math.min(100,folPct*100).toFixed(0)}%;background:var(--accent)"></i></span>`:""}
-        <span class="sub" style="margin-top:6px">Visites de profil : ${intf(agg.profile_views)}</span></div></div>
       <div class="tile b6"><h3>Analyse par format</h3><div id="fmtTable"></div></div>
       <div class="tile b6"><h3>Contenus influence</h3><div id="inflBox"></div></div>
       <div class="tile b12"><h3>Fil rouge vs Activation — par mois</h3>
@@ -2023,9 +2110,7 @@ function renderDashboard(){
           <button class="btn sec" id="addVerb" style="padding:5px 10px">+ Ajouter un retour</button></div>
         <p class="note" style="margin:0 0 10px">Exemples de commentaires / réactions de la communauté (verbatims). Apparaissent dans la présentation et le bilan PDF.</p>
         <div id="verbBox"></div></div>
-      <div class="tile b12"><h3>Détail par campagne</h3><div id="campTable"></div></div>
-      <div class="tile b6"><h3>Top contenus — hook rate (≥ 1 000 impr.)</h3><div id="topTable"></div></div>
-      <div class="tile b6"><h3>Par plateforme</h3><div id="platTable"></div></div>
+      <div class="tile b12"><h3>Top contenus — hook rate (≥ 1 000 impr.)</h3><div id="topTable"></div></div>
     </div>`;
 
   const series=monthlySeries(rows);
@@ -2090,11 +2175,9 @@ function renderDashboard(){
   $("addEvent").onclick=()=>{ eventsFor().push({id:uid(),year:yr,fromM:1,toM:Math.min(12,(new Date().getMonth()+1)),label:"",sentiment:"neutral"}); saveEvents(); touchClient(); renderEventList(yr); redrawEventBands(yr); };
   renderVerbatims();
   $("addVerb").onclick=()=>{ verbatimsFor().push({id:uid(),author:"",text:"",platform:"instagram",sentiment:"pos"}); saveVerbatims(); touchClient(); renderVerbatims(); };
-  renderAggTable("campTable", groupBy(rows,"campaign"), "Campagne", obj);
   const tops=groupBy(rows,"creative").filter(g=>g.impressions>=1000)
     .sort((a,b)=>(b.hook_rate||0)-(a.hook_rate||0)).slice(0,15);
   renderAggTable("topTable", tops, "Créa", obj, true);
-  renderAggTable("platTable", plats.map(g=>({...g,name:PLATFORMS[g.platform].label})), "Plateforme", obj);
 
   // ---- Fil rouge vs Activation : barres empilées impressions par mois ----
   const natKeys=["filrouge","activation"];
@@ -2815,6 +2898,8 @@ function renderSettings(){
     return `<tr><td>${labelFor(p)}</td>
       <td class="num"><input type="number" step="0.1" data-p="${p}" data-k="engagement" value="${(o.engagement*100).toFixed(1)}" style="width:72px"></td>
       <td class="num"><input type="number" step="100000" data-p="${p}" data-k="impressions" value="${o.impressions||0}" style="width:120px"></td>
+      <td class="num"><input type="number" step="100000" data-p="${p}" data-k="reach" value="${o.reach||0}" style="width:120px"></td>
+      <td class="num"><input type="number" step="0.5" data-p="${p}" data-k="cpm_max" value="${o.cpm_max||0}" style="width:72px"></td>
       <td class="num"><input type="number" step="1" data-p="${p}" data-k="hook" value="${(o.hook*100).toFixed(0)}" style="width:64px"></td>
       <td class="num"><input type="number" step="1" data-p="${p}" data-k="hold" value="${(o.hold*100).toFixed(0)}" style="width:64px"></td>
       <td class="num"><input type="number" step="100" data-p="${p}" data-k="media_budget" value="${o.media_budget||0}" style="width:100px"></td>
