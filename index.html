@@ -606,6 +606,11 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
     </div>
     <div class="card">
       <h2>Objectifs annuels — <span id="objClientName"></span></h2>
+      <div class="row" style="align-items:flex-end">
+        <div class="field"><label>Secteur du client (pour le benchmark)</label>
+          <input type="text" id="clientSector" list="sectorList" placeholder="ex : Food, Boissons, Retail…"><datalist id="sectorList"></datalist></div>
+        <div class="field" style="flex:1 1 240px"><span class="note">Permet de comparer ce client à la <b>moyenne agence</b> et à la moyenne de son <b>secteur</b> dans le reporting.</span></div>
+      </div>
       <p class="note">Objectifs propres à ce client. %= Engagement/Hook/Hold ; Impressions & Budget média = totaux annuels visés ; Abonnés = total actuel et objectif (par plateforme).</p>
       <div style="overflow-x:auto"><table><thead><tr><th>Plateforme</th><th class="num">Engagement %</th><th class="num">Impressions</th><th class="num">Couverture</th><th class="num">CPM max €</th><th class="num">Hook %</th><th class="num">Hold %</th><th class="num">Budget média €</th><th class="num">Abonnés actuels</th><th class="num">Objectif abonnés</th></tr></thead>
       <tbody id="objBody"></tbody></table></div>
@@ -1621,7 +1626,8 @@ function loadDemoData(){
   ];
   STATE.rows=[]; STATE.clients=[]; STATE.objectives={}; STATE.notes={}; STATE.events={}; STATE.verbatims={}; STATE.history=[];
   profiles.forEach((pr,ci)=>{
-    const id="demo"+ci; STATE.clients.push({id,name:pr.name, updatedAt:Date.now()-pr.stale*86400000});
+    const SECT={"Breizh Cola":"Boissons","Bio'Délice":"Food","Mareva":"Food","Croq'Local":"Snacking","Pom'Vert":"Food","Le Fournil d'Émile":"Boulangerie","Tendre Pré":"Food","Saveurs du Marais":"Traiteur","Océalg":"Food"};
+    const id="demo"+ci; STATE.clients.push({id,name:pr.name, sector:SECT[pr.name]||"Food", updatedAt:Date.now()-pr.stale*86400000});
     const o=defaultObjectives(); o.global.impressions=pr.imprObj; o.global.engagement=0.025; o.global.hook=0.42; o.global.hold=0.09;
     o.global.reach=Math.round(pr.imprObj*0.7); o.global.cpm_max=9;
     ["instagram","facebook","tiktok","linkedin"].forEach(p=>{ o[p].impressions=Math.round(pr.imprObj/4); o[p].reach=Math.round(pr.imprObj*0.7/4); o[p].cpm_max=9; });
@@ -2127,6 +2133,32 @@ function renderDashboard(){
   LASTDASH={agg,aggCum,obj,findings,stImpr,stReach,stFol,stCpm,projImpr,projReach,objImpr,objReach,objCpmMax,cpmYtd,
     budget,budgetPct,folTotal,folGoal,folPct,platCum,cumR,rows,yr};
 
+  // ---- benchmark : ce client vs le reste de l'agence / son secteur ----
+  let bf=Number($("fltFrom").value), bt=Number($("fltTo").value); if(bf>bt){const t=bf;bf=bt;bt=t;}
+  const curCli=STATE.clients.find(c=>c.id===STATE.currentClient);
+  const sector=((curCli&&curCli.sector)||"").trim();
+  const benchPool=who=>{ const ids=new Set(STATE.clients.filter(c=>c.id!==STATE.currentClient
+      && (who!=="sector"||((c.sector||"").trim().toLowerCase()===sector.toLowerCase()))).map(c=>c.id));
+    return applyNatureInfluence(STATE.rows.filter(r=>ids.has(r.client) && r.year===yr && r.month>=bf && r.month<=bt
+      && (platform==="all"||r.platform===platform) && (tflt==="all"||(r.type||"paid")===tflt))); };
+  const agRows=benchPool("all"), agN=new Set(agRows.map(r=>r.client)).size;
+  const agAgg=agN?aggregate(reconcile(agRows)):null;
+  const secRows=sector?benchPool("sector"):[], secN=new Set(secRows.map(r=>r.client)).size;
+  const secAgg=secN?aggregate(reconcile(secRows)):null;
+  let benchTile="";
+  if(agAgg){
+    const fmtV=(v,k)=> v==null?"—" : k==="cpm"? v.toFixed(2)+" €" : pct(v);
+    const brow=(label,k,higherBetter=true)=>{ const m=agg[k], a=agAgg[k], s=secAgg?secAgg[k]:null;
+      let d="—"; if(m!=null&&a!=null&&a!==0){ const up=higherBetter?(m>=a):(m<=a);
+        d=`<span class="${up?'good':'bad'}">${up?"▲ mieux que l'agence":"▼ sous l'agence"}</span>`; }
+      return `<tr><td>${label}</td><td class="num"><b>${fmtV(m,k)}</b></td><td class="num" style="color:var(--muted)">${fmtV(a,k)}</td><td class="num" style="color:var(--muted)">${secAgg?fmtV(s,k):"—"}</td><td class="num">${d}</td></tr>`; };
+    benchTile=`<div class="tile b12"><h3>📊 Benchmark — vs le reste de l'agence${sector?` · secteur « ${escapeHtml(sector)} »`:""}</h3>
+      <div class="tscroll"><table><thead><tr><th>Indicateur</th><th class="num">Ce client</th><th class="num">Agence (${agN} client${agN>1?"s":""})</th><th class="num">${sector?`Secteur (${secN})`:"Secteur non défini"}</th><th class="num">Position</th></tr></thead><tbody>
+      ${brow("Engagement","engagement_rate")}${brow("Hook rate","hook_rate")}${brow("Hold rate","hold_rate")}${brow("CPM (plus bas = mieux)","cpm",false)}
+      </tbody></table></div>
+      <p class="note" style="margin-top:8px">Moyennes agence pondérées par impressions, mêmes période et filtres. Le secteur se définit dans l'onglet Objectifs.</p></div>`;
+  }
+
   box.innerHTML=`
     <div class="bento">
       <div class="tile b12" id="ctxBanner">
@@ -2157,6 +2189,7 @@ function renderDashboard(){
       ${mTile("b4","Engagement",pct(agg.engagement_rate),"objectif "+pct(obj.engagement)+dl(agg.engagement_rate,aggPrev&&aggPrev.engagement_rate,true),colorFor(agg.engagement_rate,obj.engagement),obj.engagement?agg.engagement_rate/obj.engagement:null)}
       ${mTile("b4","Hook rate",pct(agg.hook_rate),"objectif "+pct(obj.hook)+dl(agg.hook_rate,aggPrev&&aggPrev.hook_rate,true),colorFor(agg.hook_rate,obj.hook),(obj.hook&&agg.hook_rate!=null)?agg.hook_rate/obj.hook:null)}
       ${mTile("b4","Hold rate",pct(agg.hold_rate),"objectif "+pct(obj.hold)+dl(agg.hold_rate,aggPrev&&aggPrev.hold_rate,true),colorFor(agg.hold_rate,obj.hold),(obj.hold&&agg.hold_rate!=null)?agg.hold_rate/obj.hold:null)}
+      ${benchTile}
       ${mTile("b6","Budget média",eur(aggCum.spend),budget>0?(budgetPct>1?"⚠ Dépassé de "+eur(aggCum.spend-budget)+" / "+eur(budget):(budgetPct*100).toFixed(0)+"% du budget "+eur(budget)):"budget non défini",budgetPct===null?"":(budgetPct>1?"bad":budgetPct>=.8?"warn":"good"),budgetPct)}
       <div class="tile b6"><div class="metric"><span class="lbl">Mix de contenus (période)</span>
         <span class="val" style="font-size:22px">${intf(nOrg+nDark+nBoost)} <span style="font-size:12px;color:var(--muted)">publications</span></span>
@@ -2961,6 +2994,9 @@ function deleteRow(id){
 function renderSettings(){
   renderBrandSettings();
   $("objClientName").textContent=clientName();
+  const curC=STATE.clients.find(c=>c.id===STATE.currentClient);
+  $("clientSector").value=(curC&&curC.sector)||"";
+  $("sectorList").innerHTML=[...new Set(STATE.clients.map(c=>(c.sector||"").trim()).filter(Boolean))].map(s=>`<option value="${escapeHtml(s)}">`).join("");
   const keys=["global","instagram","facebook","tiktok","linkedin","youtube"];
   const labelFor=k=> k==="global"? "🌐 Global (toutes plateformes)" : `<span class="dot" style="background:${PLATFORMS[k].color}"></span>${PLATFORMS[k].label}`;
   $("objBody").innerHTML=keys.map(p=>{
@@ -2984,6 +3020,8 @@ $("saveObj").onclick=()=>{
     const v=Math.max(0,Number(i.value)||0), k=i.dataset.k;
     objFor(i.dataset.p)[k] = (k==="engagement"||k==="hook"||k==="hold") ? v/100 : v;
   });
+  const curC=STATE.clients.find(c=>c.id===STATE.currentClient);
+  if(curC){ curC.sector=$("clientSector").value.trim(); saveClients(); }
   saveObj(); toast("Objectifs enregistrés pour "+clientName()+".");
 };
 
