@@ -244,6 +244,13 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 .diag-row{display:flex;gap:10px;align-items:baseline;font-size:13px;padding:9px 12px;border-radius:8px;background:var(--panel2);border-left:3px solid var(--amber);line-height:1.45}
 .diag-row.bad{border-left-color:var(--red);background:#fef2f2}
 .diag-kpi{flex:0 0 auto;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:2px 8px}
+/* ---- checklist de clôture ---- */
+.close-check{border-left:4px solid var(--amber)}
+.close-check.done{border-left-color:var(--green)}
+.cchips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.cchip{font-size:12px;font-weight:600;padding:5px 11px;border-radius:20px}
+.cchip.ok{background:#dcfce7;color:#15803d}
+.cchip.ko{background:#fee2e2;color:#b91c1c}
 @media(max-width:900px){.hero{min-height:0}.hring{width:72px;height:72px}.hv{font-size:21px}}
 .alertlist{display:flex;flex-direction:column;gap:8px}
 .alertrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
@@ -1178,6 +1185,7 @@ let STATE = { rows:[], objectives:{}, mappings:{}, clients:[], currentClient:nul
 let pending = null;
 let charts = [];
 let dashRatesChart=null, dashVolChart=null;   // réf. pour redessiner les bandes d'événements
+let LASTDASH=null;   // dernier contexte calculé par renderDashboard (pour l'analyse pré-rédigée)
 
 // Plugin Chart.js : bandes colorées d'événements (rouge=problème, vert=positif) sur l'axe des mois.
 const EV_COL={neg:{fill:"rgba(220,38,38,.10)",line:"#dc2626"}, pos:{fill:"rgba(22,163,74,.10)",line:"#16a34a"}, neutral:{fill:"rgba(100,116,139,.10)",line:"#64748b"}};
@@ -1238,6 +1246,43 @@ function renderEventList(year){
     row.querySelector(".ev-del").onclick=()=>{ STATE.events[STATE.currentClient]=eventsFor().filter(e=>e.id!==id); saveEvents(); touchClient(); renderEventList(year); redrawEventBands(year); };
   });
 }
+// Pré-rédige « Ce qui fonctionne / À surveiller / Recommandations » à partir des chiffres (règles simples, pas d'IA).
+function draftAnalysis(){
+  const D=LASTDASH; if(!D){ alert("Ouvre d'abord le reporting."); return; }
+  const nt=notesFor();
+  if(((nt.works||"")+(nt.watch||"")+(nt.reco||"")).trim() && !confirm("Remplacer l'analyse existante par le brouillon auto ?")) return;
+  const works=[], watch=[], reco=[];
+  const plain=h=>h.replace(/<[^>]+>/g,"");
+  // ce qui fonctionne
+  if(D.stImpr==="good") works.push(`Impressions au rendez-vous : ${intf(D.aggCum.impressions)} en cumul, projection ${intf(D.projImpr)} pour un objectif de ${intf(D.objImpr)}.`);
+  if(D.stReach==="good") works.push(`La couverture tient l'objectif (proj. ${intf(D.projReach)} / ${intf(D.objReach)}).`);
+  if(D.stCpm==="good"&&D.cpmYtd!=null) works.push(`CPM maîtrisé à ${D.cpmYtd.toFixed(2)} € (max visé ${D.objCpmMax.toFixed(2)} €).`);
+  const fmtsD=groupBy(D.rows,"format").filter(g=>g.impressions>=1000&&g.hook_rate!=null).sort((a,b)=>b.hook_rate-a.hook_rate);
+  if(fmtsD.length) works.push(`Le format « ${fmtsD[0].name} » surperforme (hook ${pct(fmtsD[0].hook_rate)}).`);
+  const topsD=groupBy(D.rows,"creative").filter(g=>g.impressions>=1000).sort((a,b)=>b.impressions-a.impressions);
+  if(topsD.length) works.push(`Top contenu : « ${topsD[0].name} » (${intf(topsD[0].impressions)} impressions).`);
+  const inflD=D.rows.filter(r=>r.influence); const aI=aggregate(inflD);
+  if(aI.creator_cost>0 && emv(aI.impressions)/aI.creator_cost>=1) works.push(`L'influence est rentable : ×${(emv(aI.impressions)/aI.creator_cost).toFixed(1)} en valeur média (EMV ${eur(emv(aI.impressions))} pour ${eur(aI.creator_cost)} investis).`);
+  // à surveiller
+  D.findings.slice(0,3).forEach(f=>watch.push(plain(f.msg)+"."));
+  if(D.budget>0&&D.budgetPct>1) watch.push(`Budget média dépassé : ${eur(D.aggCum.spend)} consommés sur ${eur(D.budget)}.`);
+  else if(D.budget>0&&D.budgetPct>=0.8) watch.push(`Budget média consommé à ${(D.budgetPct*100).toFixed(0)} % — garder de la marge pour la fin d'année.`);
+  if(!watch.length) watch.push("Rien de bloquant sur la période — maintenir le rythme de publication.");
+  // recommandations
+  const pc=D.platCum.filter(g=>g.cpm!=null&&g.spend>200);
+  if(pc.length>=2){ const s=pc.slice().sort((a,b)=>a.cpm-b.cpm);
+    if(s[s.length-1].cpm>s[0].cpm*1.5) reco.push(`Réallouer une partie du budget de ${PLATFORMS[s[s.length-1].platform].label} (CPM ${s[s.length-1].cpm.toFixed(2)} €) vers ${PLATFORMS[s[0].platform].label} (CPM ${s[0].cpm.toFixed(2)} €).`); }
+  if(D.obj.hook&&D.agg.hook_rate!=null&&D.agg.hook_rate<D.obj.hook) reco.push(`Travailler l'accroche des 3 premières secondes : hook ${pct(D.agg.hook_rate)} vs objectif ${pct(D.obj.hook)}.`);
+  const natD=groupBy(D.rows,"nature");
+  const act=natD.find(g=>g.name==="activation"), fil=natD.find(g=>g.name==="filrouge");
+  if(act&&fil&&act.engagement_rate>fil.engagement_rate*1.2) reco.push(`Les activations engagent nettement plus que le fil rouge (${pct(act.engagement_rate)} vs ${pct(fil.engagement_rate)}) : renforcer les temps forts.`);
+  if(fmtsD.length) reco.push(`Augmenter la cadence du format « ${fmtsD[0].name} » qui tire le hook vers le haut.`);
+  if(aI.creator_cost>0&&emv(aI.impressions)/aI.creator_cost>=1) reco.push("Réinvestir en influence : le ROI en valeur média est positif.");
+  nt.works=works.join("\n"); nt.watch=watch.join("\n"); nt.reco=reco.join("\n");
+  saveNotes(); touchClient(); renderDashboard();
+  toast("Analyse pré-rédigée — relis et ajuste dans la slide « Analyse & recommandations ».");
+}
+
 const VSENT={pos:{label:"🟢 Positif",color:"#16a34a"},neutral:{label:"⚪ Neutre",color:"#64748b"},neg:{label:"🔴 Négatif",color:"#dc2626"}};
 function renderVerbatims(){
   const box=$("verbBox"); if(!box) return;
@@ -2057,6 +2102,31 @@ function renderDashboard(){
   const diagTile = findings.length ? `<div class="tile b12 diag"><h3>🩺 D'où vient le problème ?</h3>
     <div class="diag-list">${findings.map(f=>`<div class="diag-row ${f.sev}"><span class="diag-kpi">${f.kpi}</span><span>${f.msg}</span></div>`).join("")}</div></div>` : "";
 
+  // ---- checklist de clôture du mois (auto) ----
+  const nowD=new Date();
+  const closeM = yr<nowD.getFullYear()?12 : yr>nowD.getFullYear()?1 : Math.max(1,nowD.getMonth());   // mois précédent (1-based)
+  const rowsM=cumR.filter(r=>r.month===closeM);
+  const ntc=notesFor();
+  const topsM=rowsM.filter(r=>r.impressions>=1000);
+  const linkedM=topsM.filter(r=>cleanUrl(r.url)||cleanUrl(r.media));
+  const checks=[
+    {ok:rowsM.some(r=>(r.type||"paid")==="paid"), label:"Paid importé"},
+    {ok:rowsM.some(r=>(r.type||"paid")==="organic"), label:"Organique saisi"},
+    {ok:topsM.length>0 && linkedM.length>=Math.min(3,topsM.length), label:"Liens/visuels sur les tops"+(topsM.length?` (${linkedM.length}/${Math.min(3,topsM.length)})`:"")},
+    {ok:!!(ntc.context||"").trim(), label:"Contexte rempli"},
+    {ok:!!((ntc.works||"").trim()||(ntc.reco||"").trim()), label:"Analyse & reco"},
+  ];
+  const nOk=checks.filter(c=>c.ok).length;
+  const closeTile=`<div class="tile b12 close-check ${nOk===checks.length?"done":""}">
+    <div class="flex-between" style="flex-wrap:wrap;gap:8px">
+      <h3 style="margin:0">📋 Clôture ${MONTHS[closeM-1]} ${yr} — ${nOk===checks.length?"complète ✓":nOk+" / "+checks.length}</h3>
+      <button class="btn sec" id="draftBtn" style="padding:5px 10px" title="Pré-remplit Ce qui fonctionne / À surveiller / Recommandations à partir des chiffres">✨ Pré-rédiger l'analyse</button></div>
+    <div class="cchips">${checks.map(c=>`<span class="cchip ${c.ok?"ok":"ko"}">${c.ok?"✓":"✗"} ${c.label}</span>`).join("")}</div></div>`;
+
+  // contexte pour l'analyse pré-rédigée
+  LASTDASH={agg,aggCum,obj,findings,stImpr,stReach,stFol,stCpm,projImpr,projReach,objImpr,objReach,objCpmMax,cpmYtd,
+    budget,budgetPct,folTotal,folGoal,folPct,platCum,cumR,rows,yr};
+
   box.innerHTML=`
     <div class="bento">
       <div class="tile b12" id="ctxBanner">
@@ -2082,6 +2152,7 @@ function renderDashboard(){
         <span class="note">Cumul année vs objectifs annuels · proj. = atterrissage fin d'année au rythme actuel</span></div>
       ${heroRow}
       ${diagTile}
+      ${closeTile}
       ${cmpBlock}
       ${mTile("b4","Engagement",pct(agg.engagement_rate),"objectif "+pct(obj.engagement)+dl(agg.engagement_rate,aggPrev&&aggPrev.engagement_rate,true),colorFor(agg.engagement_rate,obj.engagement),obj.engagement?agg.engagement_rate/obj.engagement:null)}
       ${mTile("b4","Hook rate",pct(agg.hook_rate),"objectif "+pct(obj.hook)+dl(agg.hook_rate,aggPrev&&aggPrev.hook_rate,true),colorFor(agg.hook_rate,obj.hook),(obj.hook&&agg.hook_rate!=null)?agg.hook_rate/obj.hook:null)}
@@ -2175,6 +2246,7 @@ function renderDashboard(){
   $("addEvent").onclick=()=>{ eventsFor().push({id:uid(),year:yr,fromM:1,toM:Math.min(12,(new Date().getMonth()+1)),label:"",sentiment:"neutral"}); saveEvents(); touchClient(); renderEventList(yr); redrawEventBands(yr); };
   renderVerbatims();
   $("addVerb").onclick=()=>{ verbatimsFor().push({id:uid(),author:"",text:"",platform:"instagram",sentiment:"pos"}); saveVerbatims(); touchClient(); renderVerbatims(); };
+  $("draftBtn").onclick=draftAnalysis;
   const tops=groupBy(rows,"creative").filter(g=>g.impressions>=1000)
     .sort((a,b)=>(b.hook_rate||0)-(a.hook_rate||0)).slice(0,15);
   renderAggTable("topTable", tops, "Créa", obj, true);
