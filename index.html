@@ -220,6 +220,15 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 .cmp-d{font-size:11px;font-weight:600;margin-left:6px;vertical-align:middle}
 .cmp-d.good{color:var(--green)}.cmp-d.bad{color:var(--red)}
 @media(max-width:760px){.cmp2col{grid-template-columns:1fr}.cmp-kgrid{grid-template-columns:1fr 1fr}}
+/* split enrichi : graphiques + top par période */
+.splitcmp .cmp-charts{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+.splitcmp .cmp-ch .chart-sm{height:150px}
+.splitcmp .ct{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px}
+.cmp-topbox{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.cmp-top{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:5px 0}
+.cmp-top .rk{width:17px;height:17px;border-radius:50%;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.cmp-top .tnm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmp-top b{color:var(--accent);flex:0 0 auto}
 /* ---- hero « objectifs au rendez-vous ? » ---- */
 .hero{display:flex;align-items:center;gap:14px;min-height:118px}
 .hring{--p:0;width:88px;height:88px;border-radius:50%;flex:0 0 auto;position:relative;
@@ -2122,12 +2131,24 @@ function renderDashboard(){
         ${k("Dépense média",eur(a.spend),"","",ref?dvs(a.spend,ref.spend,false):"")}
         ${k("CPM",a.cpm!=null?a.cpm.toFixed(2)+" €":"—","","",ref?dvs(a.cpm,ref.cpm,false):"")}
       </div>`; };
-    cmpBlock=`<div class="tile b12"><h3>↔ Comparaison côte à côte</h3>
+    const topList=rws=>{ const t=groupBy(rws,"creative").filter(g=>g.impressions>=1000&&g.name!=="(non précisé)").sort((a,b)=>(b.hook_rate||0)-(a.hook_rate||0)).slice(0,3);
+      if(!t.length) return '<div class="note">Pas de contenu ≥ 1 000 impressions.</div>';
+      return t.map((g,i)=>`<div class="cmp-top"><span class="rk">${i+1}</span><span class="dot" style="background:${PLATFORMS[g.platform].color}"></span><span class="tnm" title="${escapeHtml(g.name)}">${escapeHtml(g.name)}</span><b>${pct(g.hook_rate)}</b></div>`).join(""); };
+    const col=(hd,tag,a,ref,rws,cid)=>`<div class="cmp2 ${tag}">
+        <div class="cmp2-hd">${hd}</div>
+        ${cmpCol(a,ref)}
+        <div class="cmp-charts">
+          <div class="cmp-ch"><div class="ct">Hook &amp; Hold</div><div class="chart-sm"><canvas id="ch${cid}h"></canvas></div></div>
+          <div class="cmp-ch"><div class="ct">Impressions &amp; dépense</div><div class="chart-sm"><canvas id="ch${cid}v"></canvas></div></div>
+        </div>
+        <div class="cmp-topbox"><div class="ct">Top contenus (hook)</div>${topList(rws)}</div>
+      </div>`;
+    cmpBlock=`<div class="tile b12 splitcmp"><h3>↔ Comparaison — 2 périodes côte à côte</h3>
       <div class="cmp2col">
-        <div class="cmp2 cur"><div class="cmp2-hd">${periodLbl} <span class="note">· période en cours</span></div>${cmpCol(agg,aggPrev)}<div class="chart-sm"><canvas id="chCmpA"></canvas></div></div>
-        <div class="cmp2 ref"><div class="cmp2-hd">${cmpLabel} <span class="note">· référence</span></div>${cmpCol(aggPrev,null)}<div class="chart-sm"><canvas id="chCmpB"></canvas></div></div>
+        ${col(`${periodLbl} <span class="note">· période en cours</span>`,"cur",agg,aggPrev,rows,"CmpA")}
+        ${col(`${cmpLabel} <span class="note">· référence</span>`,"ref",aggPrev,null,cmp.rows,"CmpB")}
       </div>
-      <p class="note" style="margin-top:8px">Les ▲▼ sur la colonne de gauche indiquent l'évolution par rapport à la période de référence.</p></div>`;
+      <p class="note" style="margin-top:8px">Les ▲▼ sur la colonne de gauche indiquent l'évolution par rapport à la période de référence. Choisis la 2ᵉ période dans « Comparer à » en haut.</p></div>`;
   }
   // avertissement budget dépassé (consommé > alloué)
   const budgetWarn = (budget>0 && aggCum.spend>budget)
@@ -2263,13 +2284,13 @@ function renderDashboard(){
         <div style="font-size:15px"><b>${escapeHtml(clientName())}</b> · ${platLbl}${reconcileOn()?' · <span class="tag" style="border-color:var(--accent);color:var(--accent)" title="Pour un contenu présent en Paid et Organique, le plus gros chiffre est retenu (anti-doublon BM / Business Suite)">⚖ paid/orga réconcilié</span>':''}</div>
         <div style="color:var(--muted);text-align:right">${periodLbl}${cmpLabel?`<br><span style="font-size:11px">▲▼ comparé à ${cmpLabel}</span>`:""}</div></div>
       ${budgetWarn}
+      ${cmpBlock}
       <div class="tile b12" style="padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
         <h3 style="margin:0">🎯 Objectifs ${yr} — au rendez-vous ?</h3>
         <span class="note">Cumul année vs objectifs annuels · proj. = atterrissage fin d'année au rythme actuel</span></div>
       ${heroRow}
       ${diagTile}
       ${closeTile}
-      ${cmpBlock}
       ${mTile("b4","Engagement",pct(agg.engagement_rate),"objectif "+pct(obj.engagement)+dl(agg.engagement_rate,aggPrev&&aggPrev.engagement_rate,true),colorFor(agg.engagement_rate,obj.engagement),obj.engagement?agg.engagement_rate/obj.engagement:null)}
       ${mTile("b4","Hook rate",pct(agg.hook_rate),"objectif "+pct(obj.hook)+dl(agg.hook_rate,aggPrev&&aggPrev.hook_rate,true),colorFor(agg.hook_rate,obj.hook),(obj.hook&&agg.hook_rate!=null)?agg.hook_rate/obj.hook:null)}
       ${mTile("b4","Hold rate",pct(agg.hold_rate),"objectif "+pct(obj.hold)+dl(agg.hold_rate,aggPrev&&aggPrev.hold_rate,true),colorFor(agg.hold_rate,obj.hold),(obj.hold&&agg.hold_rate!=null)?agg.hold_rate/obj.hold:null)}
@@ -2335,18 +2356,27 @@ function renderDashboard(){
   donut("chDoImp","wrapDoImp",plats.filter(g=>g.impressions>0).map(g=>({label:PLATFORMS[g.platform].label,value:g.impressions,color:PLATFORMS[g.platform].color})));
   donut("chDoSp","wrapDoSp",plats.filter(g=>g.spend>0).map(g=>({label:PLATFORMS[g.platform].label,value:g.spend,color:PLATFORMS[g.platform].color})));
 
-  // mini-courbes hook/hold des deux périodes comparées (split côte à côte)
-  if(aggPrev && $("chCmpA")){
+  // mini-graphiques des deux périodes comparées (vrai split côte à côte)
+  if(aggPrev && $("chCmpAh")){
     const miniHookHold=(cid,srs)=>{ if(!$(cid)) return;
       charts.push(new Chart($(cid),{type:"line",
         data:{labels:srs.map(s=>s.label),datasets:[
           {label:"Hook",data:srs.map(s=>s.hook_rate!=null?+(s.hook_rate*100).toFixed(1):null),borderColor:"#3b5bfd",backgroundColor:"#3b5bfd1f",tension:.35,spanGaps:true,fill:true,pointRadius:2},
           {label:"Hold",data:srs.map(s=>s.hold_rate!=null?+(s.hold_rate*100).toFixed(1):null),borderColor:"#7c5cff",backgroundColor:"#7c5cff1f",tension:.35,spanGaps:true,fill:true,pointRadius:2}]},
         options:{maintainAspectRatio:false,plugins:{legend:{labels:{color:tickc,boxWidth:10,font:{size:10}}}},
-          scales:{y:{ticks:{color:tickc,font:{size:10},callback:v=>v+"%"},grid:{color:gridc}},x:{ticks:{color:tickc,font:{size:10}},grid:{display:false}}}}})); };
+          scales:{y:{ticks:{color:tickc,font:{size:10},callback:v=>v+"%"},grid:{color:gridc},beginAtZero:true},x:{ticks:{color:tickc,font:{size:10}},grid:{display:false}}}}})); };
+    const miniVol=(cid,srs)=>{ if(!$(cid)) return;
+      charts.push(new Chart($(cid),{type:"bar",
+        data:{labels:srs.map(s=>s.label),datasets:[
+          {label:"Impr.",data:srs.map(s=>s.impressions),backgroundColor:"#3b5bfdaa",borderRadius:3,yAxisID:"y"},
+          {label:"Dépense",type:"line",data:srs.map(s=>s.spend),borderColor:"#16a34a",backgroundColor:"#16a34a22",tension:.35,pointRadius:2,yAxisID:"y1"}]},
+        options:{maintainAspectRatio:false,plugins:{legend:{labels:{color:tickc,boxWidth:10,font:{size:10}}}},
+          scales:{y:{position:"left",ticks:{color:tickc,font:{size:10}},grid:{color:gridc}},y1:{position:"right",ticks:{color:tickc,font:{size:10}},grid:{drawOnChartArea:false}},x:{ticks:{color:tickc,font:{size:10}},grid:{display:false}}}}})); };
     let af=Number($("fltFrom").value), at=Number($("fltTo").value); if(af>at){const x=af;af=at;at=x;}
-    miniHookHold("chCmpA", monthlySeries(rows).filter(s=>s.month>=af&&s.month<=at));
-    miniHookHold("chCmpB", monthlySeries(cmp.rows));
+    const bm=cmp.rows.map(r=>r.month), bmin=Math.min(...bm), bmax=Math.max(...bm);
+    const sA=monthlySeries(rows).filter(s=>s.month>=af&&s.month<=at), sB=monthlySeries(cmp.rows).filter(s=>s.month>=bmin&&s.month<=bmax);
+    miniHookHold("chCmpAh", sA); miniVol("chCmpAv", sA);
+    miniHookHold("chCmpBh", sB); miniVol("chCmpBv", sB);
   }
 
   renderAggTable("fmtTable", groupBy(rows,"format"), "Format", obj);
