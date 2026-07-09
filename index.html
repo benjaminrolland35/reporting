@@ -229,6 +229,10 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 .cmp-top .rk{width:17px;height:17px;border-radius:50%;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .cmp-top .tnm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cmp-top b{color:var(--accent);flex:0 0 auto}
+.cmp-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cmp-controls label{font-size:12px;color:var(--muted);font-weight:600}
+.cmp-controls select{min-width:0;padding:6px 9px;font-size:13px}
+.cmp-controls .scustom{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
 /* ---- hero « objectifs au rendez-vous ? » ---- */
 .hero{display:flex;align-items:center;gap:14px;min-height:118px}
 .hring{--p:0;width:88px;height:88px;border-radius:50%;flex:0 0 auto;position:relative;
@@ -2115,9 +2119,26 @@ function renderDashboard(){
     </div></div>`;
   const periodLbl = MONTHS[Number($("fltFrom").value)-1]+"–"+MONTHS[Number($("fltTo").value)-1]+" "+$("fltYear").value;
   const platLbl = platform!=="all"?PLATFORMS[platform].label:"toutes plateformes";
-  // comparaison côte à côte (si une période de référence est active)
+  // comparaison côte à côte (si le mode comparaison est actif — cmpLabel non nul)
   let cmpBlock="";
-  if(aggPrev){
+  if(cmpLabel){
+    // contrôles de période DANS le bloc (plus besoin de remonter en haut)
+    const cmpMode=$("fltCompare").value;
+    const cmpControls=`<div class="cmp-controls">
+      <label>Comparer à</label>
+      <select id="scmpCompare">
+        <option value="prev">Période précédente</option>
+        <option value="yoy">Même période N-1</option>
+        <option value="custom">Période personnalisée</option>
+      </select>
+      <span class="scustom" ${cmpMode==="custom"?"":'style="display:none"'}>
+        <select id="scmpYear">${$("cmpYear").innerHTML}</select>
+        <select id="scmpFrom">${$("cmpFrom").innerHTML}</select>
+        <span class="note">→</span>
+        <select id="scmpTo">${$("cmpTo").innerHTML}</select>
+      </span>
+      <button class="btn sec" id="scmpNone" style="padding:5px 10px" title="Arrêter la comparaison">✕ Fermer</button>
+    </div>`;
     // colonne KPI pour une période ; ref=valeurs de l'autre période pour les deltas (sur la colonne A)
     const dvs=(cur,ref,rate)=>{ if(ref==null||cur==null||ref===0||!isFinite(cur)) return "";
       const diff=rate?(cur-ref):(cur-ref)/ref, up=diff>=0;
@@ -2143,12 +2164,16 @@ function renderDashboard(){
         </div>
         <div class="cmp-topbox"><div class="ct">Top contenus (hook)</div>${topList(rws)}</div>
       </div>`;
-    cmpBlock=`<div class="tile b12 splitcmp"><h3>↔ Comparaison — 2 périodes côte à côte</h3>
-      <div class="cmp2col">
-        ${col(`${periodLbl} <span class="note">· période en cours</span>`,"cur",agg,aggPrev,rows,"CmpA")}
-        ${col(`${cmpLabel} <span class="note">· référence</span>`,"ref",aggPrev,null,cmp.rows,"CmpB")}
-      </div>
-      <p class="note" style="margin-top:8px">Les ▲▼ sur la colonne de gauche indiquent l'évolution par rapport à la période de référence. Choisis la 2ᵉ période dans « Comparer à » en haut.</p></div>`;
+    const splitBody = aggPrev
+      ? `<div class="cmp2col">
+          ${col(`${periodLbl} <span class="note">· période en cours</span>`,"cur",agg,aggPrev,rows,"CmpA")}
+          ${col(`${cmpLabel} <span class="note">· référence</span>`,"ref",aggPrev,null,cmp.rows,"CmpB")}
+        </div>
+        <p class="note" style="margin-top:8px">Les ▲▼ sur la colonne de gauche indiquent l'évolution par rapport à la période de référence (${escapeHtml(cmpLabel)}).</p>`
+      : `<div class="empty" style="padding:30px 12px">Aucune donnée pour la période de référence <b>${escapeHtml(cmpLabel)}</b>.<br><span class="note">Choisis une autre période à comparer ci-dessus.</span></div>`;
+    cmpBlock=`<div class="tile b12 splitcmp"><div class="flex-between" style="gap:12px;flex-wrap:wrap;margin-bottom:10px">
+        <h3 style="margin:0">↔ Comparaison — ${periodLbl} vs ${escapeHtml(cmpLabel)}</h3>${cmpControls}</div>
+      ${splitBody}</div>`;
   }
   // avertissement budget dépassé (consommé > alloué)
   const budgetWarn = (budget>0 && aggCum.spend>budget)
@@ -2394,6 +2419,15 @@ function renderDashboard(){
   renderVerbatims();
   $("addVerb").onclick=()=>{ verbatimsFor().push({id:uid(),author:"",text:"",platform:"instagram",sentiment:"pos"}); saveVerbatims(); touchClient(); renderVerbatims(); };
   $("draftBtn").onclick=draftAnalysis;
+  // contrôles de comparaison dans le bloc split (synchronisés avec la barre de filtres)
+  if($("scmpCompare")){
+    $("scmpCompare").value=$("fltCompare").value;
+    $("scmpYear").value=$("cmpYear").value; $("scmpFrom").value=$("cmpFrom").value; $("scmpTo").value=$("cmpTo").value;
+    $("scmpCompare").onchange=e=>{ $("fltCompare").value=e.target.value;
+      document.querySelectorAll(".cmpCustom").forEach(x=>x.style.display=e.target.value==="custom"?"":"none"); renderDashboard(); };
+    [["scmpYear","cmpYear"],["scmpFrom","cmpFrom"],["scmpTo","cmpTo"]].forEach(([a,b])=>{ $(a).onchange=e=>{ $(b).value=e.target.value; renderDashboard(); }; });
+    $("scmpNone").onclick=()=>{ $("fltCompare").value="none"; renderDashboard(); };
+  }
   const tops=groupBy(rows,"creative").filter(g=>g.impressions>=1000)
     .sort((a,b)=>(b.hook_rate||0)-(a.hook_rate||0)).slice(0,15);
   renderAggTable("topTable", tops, "Créa", obj, true);
