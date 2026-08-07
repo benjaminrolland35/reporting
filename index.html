@@ -264,6 +264,19 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 .cchip{font-size:12px;font-weight:600;padding:5px 11px;border-radius:20px}
 .cchip.ok{background:#dcfce7;color:#15803d}
 .cchip.ko{background:#fee2e2;color:#b91c1c}
+/* filtres repliables sur mobile (desktop : toujours visibles, bouton masqué) */
+#fltToggle{display:none;width:100%;text-align:left;margin-bottom:4px}
+/* barres d'efficience objectif vs budget (vue agence) */
+.effbar{display:block;height:4px;border-radius:2px;background:var(--panel2);margin-top:3px;min-width:110px;overflow:hidden}
+.effbar i{display:block;height:100%;border-radius:2px}
+.effbar i.o{background:var(--accent)}
+.effbar i.b{background:var(--muted)}
+.effbar i.b.over{background:var(--red)}
+.note.good{color:var(--green)}.note.warn{color:var(--amber)}.note.bad{color:var(--red)}
+@media(max-width:680px){
+  #fltToggle{display:block}
+  #fltCard.collapsed .row{display:none}
+}
 /* ---- reportings sauvegardés ---- */
 .snapbanner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
   background:#eef2ff;border:1px solid var(--accent);border-left:5px solid var(--accent);border-radius:12px;
@@ -424,6 +437,9 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
         <div><h2 style="margin:0">🏢 Vue agence — tous les clients</h2>
           <p class="note" style="margin:4px 0 0">Statut vs objectifs en un coup d'œil et projection d'atterrissage en fin d'année (au rythme actuel).</p></div>
         <div class="row" style="margin:0;align-items:flex-end">
+          <button class="btn" id="backupAll" title="Télécharge TOUT (40 clients : données, objectifs, analyses, événements, verbatims, reportings figés) dans un seul fichier .json">💾 Sauvegarde complète</button>
+          <button class="btn sec" id="restoreAllBtn" title="Restaure une sauvegarde complète (.json)">Restaurer</button>
+          <input type="file" id="restoreAll" accept=".json" style="display:none">
           <button class="btn sec" id="loadDemo" title="Remplit l'outil avec des clients fictifs pour une démonstration">🎬 Charger une démo</button>
           <div class="field" style="margin:0"><label>Année</label><select id="agYear"></select></div>
         </div>
@@ -514,7 +530,8 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 
   <!-- ================= DASHBOARD ================= -->
   <section id="dashboard" class="tab">
-    <div class="card">
+    <div class="card collapsed" id="fltCard">
+      <button id="fltToggle" class="btn sec" type="button">🎛 Filtres</button>
       <div class="row" style="align-items:flex-end">
         <div class="field"><label>Année</label><select id="fltYear"></select></div>
         <div class="field"><label>Du mois</label><select id="fltFrom"></select></div>
@@ -1627,14 +1644,16 @@ function renderAgency(){
   const nbHigh=data.reduce((s,d)=>s+d.alerts.filter(a=>a.sev==="high").length,0);
   const nbMed=data.reduce((s,d)=>s+d.alerts.filter(a=>a.sev==="med").length,0);
   const aChip=a=>`<span class="tag" style="border-color:${a.sev==="high"?"var(--red)":"var(--amber)"};color:${a.sev==="high"?"var(--red)":"var(--amber)"}">${escapeHtml(a.msg)}</span>`;
+  const AL_SHOW=6;   // alertes visibles par défaut (le reste derrière « Afficher tout »)
   const alertsPanel = alertClients.length? `<div class="card" style="border-left:4px solid ${nbHigh?"var(--red)":"var(--amber)"}">
       <h2 style="margin:0 0 4px">🔔 Alertes — ${nbHigh} critique${nbHigh>1?"s":""} · ${nbMed} à surveiller</h2>
-      <p class="note" style="margin:0 0 12px">Objectif non atteignable, données à compléter, ou pas mis à jour depuis plus d'une semaine.</p>
-      <div class="alertlist">${alertClients.map(d=>`<div class="alertrow">
+      <p class="note" style="margin:0 0 12px">Objectif non atteignable, données à compléter, ou pas mis à jour depuis plus d'une semaine. Les plus critiques d'abord.</p>
+      <div class="alertlist">${alertClients.map((d,i)=>`<div class="alertrow${i>=AL_SHOW?" alert-extra":""}" data-name="${escapeHtml((d.c.name+" "+(d.c.sector||"")).toLowerCase())}"${i>=AL_SHOW?' style="display:none"':''}>
         <span class="dot" style="background:${d.alerts.some(a=>a.sev==="high")?"var(--red)":"var(--amber)"}"></span>
         <b class="aname">${escapeHtml(d.c.name)}</b>
         <span class="achips">${d.alerts.map(aChip).join("")}</span>
         <button class="actbtn" data-go="${d.c.id}">Ouvrir →</button></div>`).join("")}</div>
+      ${alertClients.length>AL_SHOW?`<button class="btn sec" id="alertsMore" style="margin-top:10px">▾ Afficher les ${alertClients.length-AL_SHOW} autres alertes</button>`:""}
     </div>` : `<div class="card" style="border-left:4px solid var(--green)"><h2 style="margin:0">✓ Aucune alerte</h2><p class="note" style="margin:4px 0 0">Tous les clients sont à jour et dans les clous pour ${yr}.</p></div>`;
 
   const ovLabel={good:"🟢 Dans les clous",warn:"🟠 À surveiller",bad:"🔴 Sous objectif","":"—"};
@@ -1642,32 +1661,43 @@ function renderAgency(){
     const t=d.imprC==="good"?"✓ Sur la bonne voie":d.imprC==="warn"?"≈ Juste":"✗ En retard";
     return `<b class="${d.imprC}">${t}</b><br><span class="note">proj. ${intf(d.projImpr)} / obj. ${intf(d.imprObj)} (${(d.imprProjPct*100).toFixed(0)}%)</span>`; };
 
+  const upToDate=withData.filter(d=>d.daysSince!=null&&d.daysSince<=7).length;
   const summary=`<div class="kpis" style="margin-bottom:16px">
     <div class="kpi"><div class="l">Clients suivis</div><div class="v">${withData.length}<span style="font-size:13px;color:var(--muted)"> / ${STATE.clients.length}</span></div></div>
     <div class="kpi"><div class="l">Sur la bonne voie</div><div class="v good">${onTrack}</div></div>
     <div class="kpi"><div class="l">Sous objectif</div><div class="v bad">${atRisk}</div></div>
+    <div class="kpi"><div class="l">À jour (≤ 7 j)</div><div class="v ${upToDate===withData.length?"good":upToDate>=withData.length*0.7?"warn":"bad"}">${upToDate}<span style="font-size:13px;color:var(--muted)"> / ${withData.length}</span></div></div>
     <div class="kpi"><div class="l">Impressions cumulées</div><div class="v" style="font-size:22px">${intf(totImpr)}</div></div>
     <div class="kpi"><div class="l">Budget média consommé</div><div class="v" style="font-size:22px">${eur(totSpend)}${totBudget>0?`<span style="font-size:13px;color:var(--muted)"> / ${eur(totBudget)}</span>`:""}</div></div>
   </div>`;
 
   const rowsHtml=data.slice().sort((a,b)=>({good:0,warn:1,bad:2,"":3}[a.overall]-{good:0,warn:1,bad:2,"":3}[b.overall])||a.c.name.localeCompare(b.c.name)).map(d=>{
-    if(!d.hasData) return `<tr style="opacity:.55"><td><b>${escapeHtml(d.c.name)}</b></td><td colspan="7" class="note">Aucune donnée pour ${yr}.</td><td><button class="actbtn" data-go="${d.c.id}">Ouvrir →</button></td></tr>`;
+    const dn=` data-name="${escapeHtml((d.c.name+" "+(d.c.sector||"")).toLowerCase())}"`;
+    const sect=d.c.sector?` <span class="tag" style="font-size:10px">${escapeHtml(d.c.sector)}</span>`:"";
+    if(!d.hasData) return `<tr style="opacity:.55"${dn}><td><b>${escapeHtml(d.c.name)}</b>${sect}</td><td colspan="7" class="note">Aucune donnée pour ${yr}.</td><td><button class="actbtn" data-go="${d.c.id}">Ouvrir →</button></td></tr>`;
     const budgetPace=d.budget>0?d.projSpend/d.budget:null;
     const folPct=d.folGoal>0?d.folTotal/d.folGoal:null;
-    return `<tr>
-      <td>${dot(d.overall)}<b>${escapeHtml(d.c.name)}</b><br><span class="note">${ovLabel[d.overall]} · données j→${MONTHS[d.lastMonth-1]}</span></td>
+    return `<tr${dn}>
+      <td>${dot(d.overall)}<b>${escapeHtml(d.c.name)}</b>${sect}<br><span class="note">${ovLabel[d.overall]} · données j→${MONTHS[d.lastMonth-1]}</span></td>
       <td class="num ${d.engC}">${pct(d.agg.engagement_rate)}<br><span class="note">obj ${pct(d.objs.global.engagement)}</span></td>
       <td class="num ${d.hookC}">${pct(d.agg.hook_rate)}<br><span class="note">obj ${pct(d.objs.global.hook)}</span></td>
       <td class="num">${intf(d.agg.impressions)}<br><span class="note">${d.imprObj>0?(d.agg.impressions/d.imprObj*100).toFixed(0)+"% obj annuel":"—"}</span></td>
       <td class="num">${land(d)}</td>
       <td class="num">${(()=>{ const over=d.budget>0&&d.agg.spend>d.budget;
-        return `<span class="${over?'bad':''}">${d.budget>0?eur(d.agg.spend):"—"}</span>${over?' <span class="tag" style="border-color:var(--red);color:var(--red)">⚠ dépassé</span>':''}<br><span class="note">${d.budget>0?(over?"sur "+eur(d.budget)+" — +"+eur(d.agg.spend-d.budget):"rythme "+(budgetPace*100).toFixed(0)+"% du budget"):"budget non défini"}</span>`; })()}</td>
+        // efficience manager : % de l'objectif atteint vs % du budget consommé
+        const objP=d.imprObj>0?d.agg.impressions/d.imprObj:null, budP=d.budget>0?d.agg.spend/d.budget:null;
+        let eff="";
+        if(objP!=null&&budP!=null&&budP>0){ const r=objP/budP, cls=r>=1?"good":r>=0.75?"warn":"bad";
+          eff=`<br><span class="effbar"><i class="o" style="width:${Math.min(100,objP*100).toFixed(0)}%"></i></span><span class="effbar"><i class="b ${over?'over':''}" style="width:${Math.min(100,budP*100).toFixed(0)}%"></i></span>`+
+              `<br><span class="note ${cls}" style="font-weight:700">${(objP*100).toFixed(0)}% obj pour ${(budP*100).toFixed(0)}% budget ${r>=1?"▲":"▼"}</span>`; }
+        return `<span class="${over?'bad':''}">${d.budget>0?eur(d.agg.spend):"—"}</span>${over?' <span class="tag" style="border-color:var(--red);color:var(--red)">⚠ dépassé</span>':''}${eff||`<br><span class="note">${d.budget>0?"rythme "+(budgetPace*100).toFixed(0)+"% du budget":"budget non défini"}</span>`}`; })()}</td>
       <td class="num">${folPct!=null?(folPct*100).toFixed(0)+"%":"—"}<br><span class="note">${d.folGoal>0?intf(d.folTotal)+" / "+intf(d.folGoal):"obj. non défini"}</span></td>
       <td class="num"><span class="${d.daysSince!=null&&d.daysSince>7?"bad":""}">${timeAgo(d.upd)}</span></td>
       <td><button class="actbtn" data-go="${d.c.id}">Ouvrir →</button></td>
     </tr>`;}).join("");
 
   box.innerHTML=`${alertsPanel}<div class="card">${summary}
+    <input type="search" id="agSearch" placeholder="🔍 Rechercher un client ou un secteur… (filtre le tableau et les alertes)" style="width:100%;margin-bottom:12px">
     <div class="tscroll"><table><thead><tr>
       <th>Client</th><th class="num">Engagement</th><th class="num">Hook rate</th>
       <th class="num">Impr. cumulées</th><th class="num">Atterrissage fin ${yr}</th>
@@ -1679,6 +1709,17 @@ function renderAgency(){
     switchClient(b.dataset.go);
     if(location.hash.slice(1)==="dashboard") activateTab("dashboard"); else location.hash="dashboard";
   });
+  // « Afficher tout » des alertes
+  const am=$("alertsMore");
+  if(am) am.onclick=()=>{ box.querySelectorAll(".alert-extra").forEach(e=>e.style.display=""); am.remove(); };
+  // recherche client/secteur (filtre tableau + alertes, sans re-render)
+  const norm=s=>s.normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+  $("agSearch").oninput=e=>{ const q=norm(e.target.value.trim());
+    box.querySelectorAll("[data-name]").forEach(el=>{
+      const hit=!q||norm(el.dataset.name).includes(q);
+      if(el.classList.contains("alert-extra")&&!q&&am&&document.contains(am)) el.style.display="none";
+      else el.style.display=hit?"":"none";
+    }); };
   const ld=$("loadDemo"); if(ld) ld.onclick=loadDemoData;
 }
 
@@ -2119,6 +2160,7 @@ function renderDashboard(){
     </div></div>`;
   const periodLbl = MONTHS[Number($("fltFrom").value)-1]+"–"+MONTHS[Number($("fltTo").value)-1]+" "+$("fltYear").value;
   const platLbl = platform!=="all"?PLATFORMS[platform].label:"toutes plateformes";
+  $("fltToggle").textContent="🎛 Filtres · "+periodLbl+" · "+platLbl;
   // comparaison côte à côte (si le mode comparaison est actif — cmpLabel non nul)
   let cmpBlock="";
   if(cmpLabel){
@@ -2662,6 +2704,7 @@ function exportBilan(){
 function renderAwards2(el, rows){ el.id="__awtmp"; renderAwards("__awtmp", rows); el.removeAttribute("id"); }
 $("exportBilan").onclick=exportBilan;
 $("saveReportBtn").onclick=saveReportSnapshot;
+$("fltToggle").onclick=()=>$("fltCard").classList.toggle("collapsed");
 
 /* ---------- mode présentation (diaporama visio) ---------- */
 let presSlides=[], presIdx=0;
@@ -3011,13 +3054,46 @@ function renderData(){
   box.querySelectorAll("button[data-edit]").forEach(b=>b.onclick=()=>openRowModal(b.dataset.edit));
   box.querySelectorAll("button[data-del]").forEach(b=>b.onclick=()=>deleteRow(b.dataset.del));
 }
-$("exportJson").onclick=()=>{
-  const payload={client:clientName(), objectives:STATE.objectives[STATE.currentClient],
-    exportedAt:new Date().toISOString(), rows:STATE.rows.filter(r=>r.client===STATE.currentClient)};
+function dlJson(payload, name){
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
-  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-  a.download="reporting-"+clientName().replace(/[^a-z0-9]+/gi,"-").toLowerCase()+"-"+new Date().toISOString().slice(0,10)+".json"; a.click();
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click();
+}
+$("exportJson").onclick=()=>{
+  const cur=STATE.currentClient, c=STATE.clients.find(x=>x.id===cur)||{};
+  const payload={version:2, client:clientName(), sector:c.sector||"", exportedAt:new Date().toISOString(),
+    objectives:STATE.objectives[cur], rows:STATE.rows.filter(r=>r.client===cur),
+    notes:STATE.notes[cur]||{}, events:STATE.events[cur]||[], verbatims:STATE.verbatims[cur]||[], reports:STATE.reports[cur]||[]};
+  dlJson(payload, "reporting-"+clientName().replace(/[^a-z0-9]+/gi,"-").toLowerCase()+"-"+new Date().toISOString().slice(0,10)+".json");
 };
+/* ---------- sauvegarde / restauration COMPLÈTE (tous les clients) ---------- */
+function exportAll(){
+  const payload={version:2, kind:"full-backup", exportedAt:new Date().toISOString(),
+    clients:STATE.clients, rows:STATE.rows, objectives:STATE.objectives, notes:STATE.notes,
+    events:STATE.events, verbatims:STATE.verbatims, reports:STATE.reports, brand:STATE.brand};
+  dlJson(payload, "sauvegarde-complete-reporting-"+new Date().toISOString().slice(0,10)+".json");
+  localStorage.setItem("rsa_lastbackup", String(Date.now()));
+  toast("Sauvegarde complète téléchargée ("+STATE.clients.length+" clients).");
+}
+function importAll(file){
+  const r=new FileReader();
+  r.onload=e=>{ try{
+      const d=JSON.parse(e.target.result);
+      if(d.kind!=="full-backup"||!Array.isArray(d.clients)){ alert("Ce fichier n'est pas une sauvegarde complète (utilise « Importer (.json) » dans Données pour un fichier client)."); return; }
+      if(!confirm("Restaurer cette sauvegarde du "+new Date(d.exportedAt).toLocaleDateString("fr-FR")+" ?\n\n⚠ Cela REMPLACE toutes les données actuelles ("+d.clients.length+" clients dans le fichier).")) return;
+      SNAP=null;
+      STATE.clients=d.clients; STATE.rows=d.rows||[]; STATE.objectives=d.objectives||{};
+      STATE.notes=d.notes||{}; STATE.events=d.events||{}; STATE.verbatims=d.verbatims||{}; STATE.reports=d.reports||{};
+      if(d.brand) STATE.brand=d.brand;
+      STATE.currentClient=STATE.clients[0]&&STATE.clients[0].id;
+      saveData(); saveObj(); saveClients(); saveNotes(); saveEvents(); saveVerbatims(); saveReports(); saveBrand(); applyBrand();
+      renderClientSelect(); refreshAll();
+      toast("Sauvegarde restaurée — "+STATE.clients.length+" clients.");
+    }catch(err){ alert("Fichier de sauvegarde invalide."); } };
+  r.readAsText(file);
+}
+$("backupAll").onclick=exportAll;
+$("restoreAllBtn").onclick=()=>$("restoreAll").click();
+$("restoreAll").onchange=ev=>{ const f=ev.target.files[0]; if(f) importAll(f); ev.target.value=""; };
 $("importJsonBtn").onclick=()=>$("importJson").click();
 $("importJson").onchange=ev=>{
   const f=ev.target.files[0]; if(!f) return;
@@ -3027,10 +3103,17 @@ $("importJson").onchange=ev=>{
       const rows=Array.isArray(data)? data : (data.rows||null);
       if(!rows){ alert("Fichier JSON invalide."); return; }
       const h=pushHistory(`Import JSON — ${clientName()}`);
-      rows.forEach(x=>x.client=STATE.currentClient);          // rattache au client courant
-      STATE.rows=STATE.rows.filter(r=>r.client!==STATE.currentClient).concat(rows);
-      if(data.objectives){ STATE.objectives[STATE.currentClient]=data.objectives; saveObj(); }
-      saveData(); touchClient(); renderData(); toast(rows.length+" lignes importées pour "+clientName()+".", h);
+      const cur=STATE.currentClient;
+      rows.forEach(x=>x.client=cur);          // rattache au client courant
+      STATE.rows=STATE.rows.filter(r=>r.client!==cur).concat(rows);
+      if(data.objectives){ STATE.objectives[cur]=data.objectives; saveObj(); }
+      // v2 : restaure aussi analyses, événements, verbatims, secteur, reportings figés
+      if(data.notes){ STATE.notes[cur]=data.notes; saveNotes(); }
+      if(Array.isArray(data.events)){ STATE.events[cur]=data.events; saveEvents(); }
+      if(Array.isArray(data.verbatims)){ STATE.verbatims[cur]=data.verbatims; saveVerbatims(); }
+      if(Array.isArray(data.reports)){ STATE.reports[cur]=data.reports; saveReports(); }
+      if(data.sector!==undefined){ const c=STATE.clients.find(x=>x.id===cur); if(c){ c.sector=data.sector; saveClients(); } }
+      saveData(); touchClient(); renderData(); toast(rows.length+" lignes importées pour "+clientName()+" (analyses incluses).", h);
     }catch(err){ alert("Fichier JSON invalide."); } };
   r.readAsText(f);
 };
@@ -3358,6 +3441,12 @@ function checkGate(){
 /* ---------- init ---------- */
 load(); applyBrand(); checkGate(); renderClientSelect(); fillYearMonth(); renderExportHelp(); renderHistory();
 activateTab(location.hash.slice(1)||"agency");   // ouvre l'onglet indiqué dans l'URL
+// rappel de sauvegarde : données réelles présentes mais aucune sauvegarde complète depuis 7 jours
+(()=>{ const last=Number(localStorage.getItem("rsa_lastbackup")||0);
+  const isDemo=STATE.clients.some(c=>String(c.id).startsWith("demo"));
+  if(STATE.rows.length>0 && !isDemo && Date.now()-last>7*86400000)
+    setTimeout(()=>toast(last?"💾 Dernière sauvegarde complète il y a "+Math.floor((Date.now()-last)/86400000)+" j — pense à en refaire une (Vue agence).":"💾 Aucune sauvegarde complète — fais-en une depuis la Vue agence (tes données ne vivent que dans ce navigateur)."),1500);
+})();
 </script>
 </body>
 </html>
