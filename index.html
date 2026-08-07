@@ -273,6 +273,12 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 .effbar i.b{background:var(--muted)}
 .effbar i.b.over{background:var(--red)}
 .note.good{color:var(--green)}.note.warn{color:var(--amber)}.note.bad{color:var(--red)}
+/* vue Essentiel / Détail du reporting */
+#dashContent.simple .adv-tile{display:none}
+#dashContent.simple #volTile{grid-column:span 12}
+.vmode{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.vmode button{border:0;background:var(--panel2);color:var(--muted);padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer}
+.vmode button.on{background:var(--accent);color:#fff}
 @media(max-width:680px){
   #fltToggle{display:block}
   #fltCard.collapsed .row{display:none}
@@ -2324,13 +2330,14 @@ function renderDashboard(){
       let d="—"; if(m!=null&&a!=null&&a!==0){ const up=higherBetter?(m>=a):(m<=a);
         d=`<span class="${up?'good':'bad'}">${up?"▲ mieux que l'agence":"▼ sous l'agence"}</span>`; }
       return `<tr><td>${label}</td><td class="num"><b>${fmtV(m,k)}</b></td><td class="num" style="color:var(--muted)">${fmtV(a,k)}</td><td class="num" style="color:var(--muted)">${secAgg?fmtV(s,k):"—"}</td><td class="num">${d}</td></tr>`; };
-    benchTile=`<div class="tile b12"><h3>📊 Benchmark — vs le reste de l'agence${sector?` · secteur « ${escapeHtml(sector)} »`:""}</h3>
+    benchTile=`<div class="tile b12 adv-tile"><h3>📊 Benchmark — vs le reste de l'agence${sector?` · secteur « ${escapeHtml(sector)} »`:""}</h3>
       <div class="tscroll"><table><thead><tr><th>Indicateur</th><th class="num">Ce client</th><th class="num">Agence (${agN} client${agN>1?"s":""})</th><th class="num">${sector?`Secteur (${secN})`:"Secteur non défini"}</th><th class="num">Position</th></tr></thead><tbody>
       ${brow("Engagement","engagement_rate")}${brow("Hook rate","hook_rate")}${brow("Hold rate","hold_rate")}${brow("CPM (plus bas = mieux)","cpm",false)}
       </tbody></table></div>
       <p class="note" style="margin-top:8px">Moyennes agence pondérées par impressions, mêmes période et filtres. Le secteur se définit dans l'onglet Objectifs.</p></div>`;
   }
 
+  const simpleMode=(localStorage.getItem("rsa_viewmode")||"simple")!=="full";
   box.innerHTML=`
     <div class="bento">
       <div class="tile b12" id="ctxBanner">
@@ -2340,16 +2347,20 @@ function renderDashboard(){
             <input type="checkbox" id="ctxConflict" style="width:16px;height:16px;min-width:0;margin:0"> ⚠ Point de vigilance / conflit potentiel</label>
         </div>
         <textarea id="ctxNote" placeholder="Justifie une hausse ou une baisse de performance liée à une activité (temps fort, influence, bad buzz, rupture de stock, période creuse…). Ce texte apparaît en haut du bilan PDF." style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:10px;font:inherit;font-size:13px;resize:vertical;min-height:60px"></textarea>
-        <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
-          <div class="flex-between" style="margin-bottom:6px">
-            <b style="font-size:12px">📅 Événements ${yr} — bandes colorées sur les courbes (ex : Coupe du monde 2026)</b>
+        <details style="margin-top:10px" ${eventsFor().filter(e=>e.year===yr).length?"":""}>
+          <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--muted)">📅 Événements ${yr} — bandes colorées sur les courbes${(n=>n?` (${n})`:"")(eventsFor().filter(e=>e.year===yr).length)}</summary>
+          <div class="flex-between" style="margin:8px 0 6px">
+            <span class="note">Ex : Coupe du monde 2026, rupture de stock…</span>
             <button class="btn sec" id="addEvent" style="padding:5px 10px">+ Ajouter un événement</button></div>
           <div id="eventList"></div>
-        </div>
+        </details>
       </div>
-      <div class="tile b12" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
+      <div class="tile b12" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 18px">
         <div style="font-size:15px"><b>${escapeHtml(clientName())}</b> · ${platLbl}${reconcileOn()?' · <span class="tag" style="border-color:var(--accent);color:var(--accent)" title="Pour un contenu présent en Paid et Organique, le plus gros chiffre est retenu (anti-doublon BM / Business Suite)">⚖ paid/orga réconcilié</span>':''}</div>
-        <div style="color:var(--muted);text-align:right">${periodLbl}${cmpLabel?`<br><span style="font-size:11px">▲▼ comparé à ${cmpLabel}</span>`:""}</div></div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span class="vmode"><button data-vm="simple" class="${simpleMode?"on":""}">Essentiel</button><button data-vm="full" class="${simpleMode?"":"on"}">Détail</button></span>
+          <span style="color:var(--muted);text-align:right">${periodLbl}${cmpLabel?`<br><span style="font-size:11px">▲▼ comparé à ${cmpLabel}</span>`:""}</span>
+        </div></div>
       ${budgetWarn}
       ${cmpBlock}
       <div class="tile b12" style="padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
@@ -2358,35 +2369,36 @@ function renderDashboard(){
       ${heroRow}
       ${diagTile}
       ${closeTile}
-      ${mTile("b4","Engagement",pct(agg.engagement_rate),"objectif "+pct(obj.engagement)+dl(agg.engagement_rate,aggPrev&&aggPrev.engagement_rate,true),colorFor(agg.engagement_rate,obj.engagement),obj.engagement?agg.engagement_rate/obj.engagement:null)}
-      ${mTile("b4","Hook rate",pct(agg.hook_rate),"objectif "+pct(obj.hook)+dl(agg.hook_rate,aggPrev&&aggPrev.hook_rate,true),colorFor(agg.hook_rate,obj.hook),(obj.hook&&agg.hook_rate!=null)?agg.hook_rate/obj.hook:null)}
-      ${mTile("b4","Hold rate",pct(agg.hold_rate),"objectif "+pct(obj.hold)+dl(agg.hold_rate,aggPrev&&aggPrev.hold_rate,true),colorFor(agg.hold_rate,obj.hold),(obj.hold&&agg.hold_rate!=null)?agg.hold_rate/obj.hold:null)}
+      ${mTile("b4 adv-tile","Engagement",pct(agg.engagement_rate),"objectif "+pct(obj.engagement)+dl(agg.engagement_rate,aggPrev&&aggPrev.engagement_rate,true),colorFor(agg.engagement_rate,obj.engagement),obj.engagement?agg.engagement_rate/obj.engagement:null)}
+      ${mTile("b4 adv-tile","Hook rate",pct(agg.hook_rate),"objectif "+pct(obj.hook)+dl(agg.hook_rate,aggPrev&&aggPrev.hook_rate,true),colorFor(agg.hook_rate,obj.hook),(obj.hook&&agg.hook_rate!=null)?agg.hook_rate/obj.hook:null)}
+      ${mTile("b4 adv-tile","Hold rate",pct(agg.hold_rate),"objectif "+pct(obj.hold)+dl(agg.hold_rate,aggPrev&&aggPrev.hold_rate,true),colorFor(agg.hold_rate,obj.hold),(obj.hold&&agg.hold_rate!=null)?agg.hold_rate/obj.hold:null)}
       ${benchTile}
       ${mTile("b6","Budget média",eur(aggCum.spend),budget>0?(budgetPct>1?"⚠ Dépassé de "+eur(aggCum.spend-budget)+" / "+eur(budget):(budgetPct*100).toFixed(0)+"% du budget "+eur(budget)):"budget non défini",budgetPct===null?"":(budgetPct>1?"bad":budgetPct>=.8?"warn":"good"),budgetPct)}
-      <div class="tile b6"><div class="metric"><span class="lbl">Mix de contenus (période)</span>
+      <div class="tile b6 adv-tile"><div class="metric"><span class="lbl">Mix de contenus (période)</span>
         <span class="val" style="font-size:22px">${intf(nOrg+nDark+nBoost)} <span style="font-size:12px;color:var(--muted)">publications</span></span>
         <span class="sub" style="margin-top:6px;line-height:1.7">
           <span class="tag" style="border-color:var(--green);color:var(--green)">${nOrg} organique${nOrg>1?"s":""}</span>
           <span class="tag" style="border-color:#475569;color:#475569">${nDark} dark post${nDark>1?"s":""}</span>
           ${nBoost?`<span class="tag" style="border-color:var(--accent);color:var(--accent)">${nBoost} boost${nBoost>1?"s":""}</span>`:""}</span>
         <span class="sub" style="margin-top:6px">Organique = dans le feed · Dark post = annonce hors feed</span></div></div>
-      <div class="tile b8"><h3>Évolution — Hook & Hold rate</h3><div class="chart-md"><canvas id="chRates"></canvas></div></div>
-      <div class="tile b4"><h3>Impressions par plateforme</h3><div class="chart-sm" id="wrapDoImp"><canvas id="chDoImp"></canvas></div></div>
-      <div class="tile b8"><h3>Évolution — Impressions & Dépense</h3><div class="chart-md"><canvas id="chVol"></canvas></div></div>
-      <div class="tile b4"><h3>Dépense par plateforme</h3><div class="chart-sm" id="wrapDoSp"><canvas id="chDoSp"></canvas></div></div>
-      <div class="tile b6"><h3>Analyse par format</h3><div id="fmtTable"></div></div>
-      <div class="tile b6"><h3>Contenus influence</h3><div id="inflBox"></div></div>
-      <div class="tile b12"><h3>Fil rouge vs Activation — par mois</h3>
+      <div class="tile b8 adv-tile"><h3>Évolution — Hook & Hold rate</h3><div class="chart-md"><canvas id="chRates"></canvas></div></div>
+      <div class="tile b4 adv-tile"><h3>Impressions par plateforme</h3><div class="chart-sm" id="wrapDoImp"><canvas id="chDoImp"></canvas></div></div>
+      <div class="tile b8" id="volTile"><h3>Évolution — Impressions & Dépense</h3><div class="chart-md"><canvas id="chVol"></canvas></div></div>
+      <div class="tile b4 adv-tile"><h3>Dépense par plateforme</h3><div class="chart-sm" id="wrapDoSp"><canvas id="chDoSp"></canvas></div></div>
+      <div class="tile b6 adv-tile"><h3>Analyse par format</h3><div id="fmtTable"></div></div>
+      <div class="tile b6 adv-tile"><h3>Contenus influence</h3><div id="inflBox"></div></div>
+      <div class="tile b12 adv-tile"><h3>Fil rouge vs Activation — par mois</h3>
         <div class="chart-md"><canvas id="chNature"></canvas></div>
         <div id="natTable" style="margin-top:12px"></div></div>
-      <div class="tile b12"><h3>🏆 Les awards</h3><div id="awards"></div></div>
-      <div class="tile b12" id="verbTile">
+      <div class="tile b12 adv-tile"><h3>🏆 Les awards</h3><div id="awards"></div></div>
+      <div class="tile b12 adv-tile" id="verbTile">
         <div class="flex-between" style="margin-bottom:8px">
           <h3 style="margin:0">💬 Retours de la communauté</h3>
           <button class="btn sec" id="addVerb" style="padding:5px 10px">+ Ajouter un retour</button></div>
         <p class="note" style="margin:0 0 10px">Exemples de commentaires / réactions de la communauté (verbatims). Apparaissent dans la présentation et le bilan PDF.</p>
         <div id="verbBox"></div></div>
-      <div class="tile b12"><h3>Top contenus — hook rate (≥ 1 000 impr.)</h3><div id="topTable"></div></div>
+      <div class="tile b12 adv-tile"><h3>Top contenus — hook rate (≥ 1 000 impr.)</h3><div id="topTable"></div></div>
+      <button class="btn sec b12" id="vmodeMore" style="grid-column:span 12;padding:12px">▾ Voir le détail complet (formats, influence, fil rouge/activation, awards, verbatims, top contenus…)</button>
     </div>`;
 
   const series=monthlySeries(rows);
@@ -2461,6 +2473,11 @@ function renderDashboard(){
   renderVerbatims();
   $("addVerb").onclick=()=>{ verbatimsFor().push({id:uid(),author:"",text:"",platform:"instagram",sentiment:"pos"}); saveVerbatims(); touchClient(); renderVerbatims(); };
   $("draftBtn").onclick=draftAnalysis;
+  // bascule vue Essentiel / Détail
+  box.classList.toggle("simple", simpleMode);
+  const setVm=vm=>{ localStorage.setItem("rsa_viewmode",vm); renderDashboard(); };
+  box.querySelectorAll("[data-vm]").forEach(b=>b.onclick=()=>setVm(b.dataset.vm));
+  const vm=$("vmodeMore"); if(vm){ vm.style.display=simpleMode?"":"none"; vm.onclick=()=>setVm("full"); }
   // contrôles de comparaison dans le bloc split (synchronisés avec la barre de filtres)
   if($("scmpCompare")){
     $("scmpCompare").value=$("fltCompare").value;
