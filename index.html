@@ -276,6 +276,8 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
 /* vue Essentiel / Détail du reporting */
 #dashContent.simple .adv-tile{display:none}
 #dashContent.simple #volTile{grid-column:span 12}
+#agencyContent.simple .adv-col{display:none}
+#agencyContent.simple .adv-kpi{display:none}
 .vmode{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
 .vmode button{border:0;background:var(--panel2);color:var(--muted);padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer}
 .vmode button.on{background:var(--accent);color:#fff}
@@ -443,6 +445,7 @@ tr.month-sep .ms-meta{color:var(--muted);font-size:11px;margin-left:10px}
         <div><h2 style="margin:0">🏢 Vue agence — tous les clients</h2>
           <p class="note" style="margin:4px 0 0">Statut vs objectifs en un coup d'œil et projection d'atterrissage en fin d'année (au rythme actuel).</p></div>
         <div class="row" style="margin:0;align-items:flex-end">
+          <span class="vmode" id="agVmode" style="align-self:center"><button data-agvm="simple">Essentiel</button><button data-agvm="full">Détail</button></span>
           <button class="btn" id="backupAll" title="Télécharge TOUT (40 clients : données, objectifs, analyses, événements, verbatims, reportings figés) dans un seul fichier .json">💾 Sauvegarde complète</button>
           <button class="btn sec" id="restoreAllBtn" title="Restaure une sauvegarde complète (.json)">Restaurer</button>
           <input type="file" id="restoreAll" accept=".json" style="display:none">
@@ -1669,11 +1672,11 @@ function renderAgency(){
 
   const upToDate=withData.filter(d=>d.daysSince!=null&&d.daysSince<=7).length;
   const summary=`<div class="kpis" style="margin-bottom:16px">
-    <div class="kpi"><div class="l">Clients suivis</div><div class="v">${withData.length}<span style="font-size:13px;color:var(--muted)"> / ${STATE.clients.length}</span></div></div>
+    <div class="kpi adv-kpi"><div class="l">Clients suivis</div><div class="v">${withData.length}<span style="font-size:13px;color:var(--muted)"> / ${STATE.clients.length}</span></div></div>
     <div class="kpi"><div class="l">Sur la bonne voie</div><div class="v good">${onTrack}</div></div>
     <div class="kpi"><div class="l">Sous objectif</div><div class="v bad">${atRisk}</div></div>
     <div class="kpi"><div class="l">À jour (≤ 7 j)</div><div class="v ${upToDate===withData.length?"good":upToDate>=withData.length*0.7?"warn":"bad"}">${upToDate}<span style="font-size:13px;color:var(--muted)"> / ${withData.length}</span></div></div>
-    <div class="kpi"><div class="l">Impressions cumulées</div><div class="v" style="font-size:22px">${intf(totImpr)}</div></div>
+    <div class="kpi adv-kpi"><div class="l">Impressions cumulées</div><div class="v" style="font-size:22px">${intf(totImpr)}</div></div>
     <div class="kpi"><div class="l">Budget média consommé</div><div class="v" style="font-size:22px">${eur(totSpend)}${totBudget>0?`<span style="font-size:13px;color:var(--muted)"> / ${eur(totBudget)}</span>`:""}</div></div>
   </div>`;
 
@@ -1685,9 +1688,9 @@ function renderAgency(){
     const folPct=d.folGoal>0?d.folTotal/d.folGoal:null;
     return `<tr${dn}>
       <td>${dot(d.overall)}<b>${escapeHtml(d.c.name)}</b>${sect}<br><span class="note">${ovLabel[d.overall]} · données j→${MONTHS[d.lastMonth-1]}</span></td>
-      <td class="num ${d.engC}">${pct(d.agg.engagement_rate)}<br><span class="note">obj ${pct(d.objs.global.engagement)}</span></td>
-      <td class="num ${d.hookC}">${pct(d.agg.hook_rate)}<br><span class="note">obj ${pct(d.objs.global.hook)}</span></td>
-      <td class="num">${intf(d.agg.impressions)}<br><span class="note">${d.imprObj>0?(d.agg.impressions/d.imprObj*100).toFixed(0)+"% obj annuel":"—"}</span></td>
+      <td class="num adv-col ${d.engC}">${pct(d.agg.engagement_rate)}<br><span class="note">obj ${pct(d.objs.global.engagement)}</span></td>
+      <td class="num adv-col ${d.hookC}">${pct(d.agg.hook_rate)}<br><span class="note">obj ${pct(d.objs.global.hook)}</span></td>
+      <td class="num adv-col">${intf(d.agg.impressions)}<br><span class="note">${d.imprObj>0?(d.agg.impressions/d.imprObj*100).toFixed(0)+"% obj annuel":"—"}</span></td>
       <td class="num">${land(d)}</td>
       <td class="num">${(()=>{ const over=d.budget>0&&d.agg.spend>d.budget;
         // efficience manager : % de l'objectif atteint vs % du budget consommé
@@ -1697,7 +1700,7 @@ function renderAgency(){
           eff=`<br><span class="effbar"><i class="o" style="width:${Math.min(100,objP*100).toFixed(0)}%"></i></span><span class="effbar"><i class="b ${over?'over':''}" style="width:${Math.min(100,budP*100).toFixed(0)}%"></i></span>`+
               `<br><span class="note ${cls}" style="font-weight:700">${(objP*100).toFixed(0)}% obj pour ${(budP*100).toFixed(0)}% budget ${r>=1?"▲":"▼"}</span>`; }
         return `<span class="${over?'bad':''}">${d.budget>0?eur(d.agg.spend):"—"}</span>${over?' <span class="tag" style="border-color:var(--red);color:var(--red)">⚠ dépassé</span>':''}${eff||`<br><span class="note">${d.budget>0?"rythme "+(budgetPace*100).toFixed(0)+"% du budget":"budget non défini"}</span>`}`; })()}</td>
-      <td class="num">${folPct!=null?(folPct*100).toFixed(0)+"%":"—"}<br><span class="note">${d.folGoal>0?intf(d.folTotal)+" / "+intf(d.folGoal):"obj. non défini"}</span></td>
+      <td class="num adv-col">${folPct!=null?(folPct*100).toFixed(0)+"%":"—"}<br><span class="note">${d.folGoal>0?intf(d.folTotal)+" / "+intf(d.folGoal):"obj. non défini"}</span></td>
       <td class="num"><span class="${d.daysSince!=null&&d.daysSince>7?"bad":""}">${timeAgo(d.upd)}</span></td>
       <td><button class="actbtn" data-go="${d.c.id}">Ouvrir →</button></td>
     </tr>`;}).join("");
@@ -1705,15 +1708,22 @@ function renderAgency(){
   box.innerHTML=`${alertsPanel}<div class="card">${summary}
     <input type="search" id="agSearch" placeholder="🔍 Rechercher un client ou un secteur… (filtre le tableau et les alertes)" style="width:100%;margin-bottom:12px">
     <div class="tscroll"><table><thead><tr>
-      <th>Client</th><th class="num">Engagement</th><th class="num">Hook rate</th>
-      <th class="num">Impr. cumulées</th><th class="num">Atterrissage fin ${yr}</th>
-      <th class="num">Budget média</th><th class="num">Abonnés</th><th class="num">Dernière MAJ</th><th></th>
+      <th>Client</th><th class="num adv-col">Engagement</th><th class="num adv-col">Hook rate</th>
+      <th class="num adv-col">Impr. cumulées</th><th class="num">Atterrissage fin ${yr}</th>
+      <th class="num">Objectif vs budget</th><th class="num adv-col">Abonnés</th><th class="num">Dernière MAJ</th><th></th>
     </tr></thead><tbody>${rowsHtml}</tbody></table></div>
     <p class="note" style="margin-top:12px">« Atterrissage » = projection des impressions en fin d'année au rythme actuel (cumul ÷ mois avec données × 12) comparée à l'objectif annuel. Clique « Ouvrir » pour le reporting détaillé d'un client.</p>
   </div>`;
   box.querySelectorAll("button[data-go]").forEach(b=>b.onclick=()=>{
     switchClient(b.dataset.go);
     if(location.hash.slice(1)==="dashboard") activateTab("dashboard"); else location.hash="dashboard";
+  });
+  // vue Essentiel / Détail de la home
+  const agSimple=(localStorage.getItem("rsa_agmode")||"simple")!=="full";
+  box.classList.toggle("simple", agSimple);
+  document.querySelectorAll("#agVmode [data-agvm]").forEach(b=>{
+    b.classList.toggle("on", (b.dataset.agvm==="simple")===agSimple);
+    b.onclick=()=>{ localStorage.setItem("rsa_agmode", b.dataset.agvm); renderAgency(); };
   });
   // « Afficher tout » des alertes
   const am=$("alertsMore");
